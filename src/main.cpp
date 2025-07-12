@@ -6,7 +6,7 @@
 /*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 14:22:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/12 18:01:48 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/12 19:10:00 by peli             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,7 +21,6 @@ int main(int argc, char **argv)
     
         server  server;
         server.parsing(argv[1], argv[2]);
-        server.creat_socket();
     }
     catch(const std::exception& e)
     {
