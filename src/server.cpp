@@ -6,7 +6,7 @@
 /*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:03:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/12 20:52:36 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/13 21:33:16 by peli             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -68,4 +68,59 @@ void server::creat_socket()
         throw std::runtime_error("bind() fail");
     if (listen(server_fd, SOMAXCONN) == -1)// nombre maximum de connexions entrantes mises en attente
         throw std::runtime_error("listen error");
-}
+};
+
+void server::run()
+{
+    client client_;
+    pollfd server_pollfd;
+    server_pollfd.fd = socket_fd;
+    server_pollfd.events = POLLIN;
+    server_pollfd.revents = 0;
+
+    client_.add_client(socket_fd);
+    while (true)
+    {
+        std::vector<pollfd>& poll_fds = client_.get_pollfds();
+        int activity = poll(poll_fds.data(), poll_fds.size(), 0);// .data() → donne un pollfd*, c’est ce que poll() attend.
+        if (activity < 0)
+        {
+            std::cerr << "poll fail: " << strerror(errno) << std::endl;
+            continue;
+        }
+        for (size_t i = 0; i < poll_fds.size(); i++)
+        {                
+            if (poll_fds[i].fd == socket_fd)
+            {
+                if (POLLIN & poll_fds[i].revents)
+                {
+                    //connect;
+                    struct sockaddr_in client_addr;
+                    socklen_t client_len = sizeof(client_addr);
+                    int new_client = accept(socket_fd, (struct sockaddr*)&client_addr, &client_len);
+                    if (new_client < 0)
+                    {
+                        std::cerr << "client connect fail: " << strerror(errno) << std::endl;
+                        continue; 
+                    }
+                    client_.add_client(new_client);
+                }
+            }
+            else
+            {
+                char buffer[1024];
+                ssize_t j =recv(poll_fds[i].fd, buffer, sizeof(buffer), 0);
+                if (j > 0)
+                {
+                    //you process the message (for example, check if it's a command like /nick, /join, etc);
+                }
+                else
+                {
+                    close(poll_fds[i].fd);
+                    poll_fds.erase(poll_fds.begin() + i);
+                    --i;
+                }
+            }
+        }
+    }
+};

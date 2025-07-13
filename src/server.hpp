@@ -6,7 +6,7 @@
 /*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:02:06 by peli              #+#    #+#             */
-/*   Updated: 2025/07/12 20:38:26 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/13 20:02:42 by peli             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,6 +19,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <poll.h>
+#include "client.hpp"
+#include <sys/socket.h>
 
 class server
 {
@@ -36,5 +39,6 @@ public:
 
     void parsing(char *port, char *password);
     void creat_socket();
+    void run();
 };
 

@@ -1,31 +1,36 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   main.cpp                                           :+:      :+:    :+:   */
+/*   client.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/07/12 14:22:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/13 21:38:03 by peli             ###   ########.fr       */
+/*   Created: 2025/07/13 19:04:45 by peli              #+#    #+#             */
+/*   Updated: 2025/07/13 20:19:11 by peli             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "server.hpp"
 #include "client.hpp"
 
-int main(int argc, char **argv)
+client::client(/* args */)
 {
-    try
-    {
-        if (argc != 3)
-            throw std::runtime_error("Error");
-    
-        server  server;
-        server.parsing(argv[1], argv[2]);
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-    return 0;
+}
+
+client::~client()
+{
+}
+
+void client::add_client(int client_fd)
+{
+    Client_list.push_back(client_fd);
+    pollfd pollfds;
+    pollfds.fd = client_fd;
+    pollfds.events = POLLIN;
+    pollfds.revents = 0;
+    Pollfds.push_back(pollfds);
+};
+
+std::vector<pollfd>& client::get_pollfds() 
+{
+    return (Pollfds);
 }
