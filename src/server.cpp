@@ -6,7 +6,7 @@
 /*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:03:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/13 21:33:16 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/14 14:50:28 by peli             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -112,6 +112,7 @@ void server::run()
                 ssize_t j =recv(poll_fds[i].fd, buffer, sizeof(buffer), 0);
                 if (j > 0)
                 {
+                    // robin tu commence d'ici;
                     //you process the message (for example, check if it's a command like /nick, /join, etc);
                 }
                 else
