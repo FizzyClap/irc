@@ -6,7 +6,7 @@
 /*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:03:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/14 14:50:28 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/14 15:37:44 by peli             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -112,12 +112,13 @@ void server::run()
                 ssize_t j =recv(poll_fds[i].fd, buffer, sizeof(buffer), 0);
                 if (j > 0)
                 {
-                    // robin tu commence d'ici;
+                    // Robin tu peux commencer d'ici;
                     //you process the message (for example, check if it's a command like /nick, /join, etc);
                 }
                 else
                 {
                     close(poll_fds[i].fd);
+                    std::cerr << "Client " << poll_fds[i].fd << " disconnected." << std::endl;
                     poll_fds.erase(poll_fds.begin() + i);
                     --i;
                 }
@@ -125,3 +126,13 @@ void server::run()
         }
     }
 };
+
+void    send_to_client(int fd, const std::string& message)
+{
+    ssize_t sent = send(fd, message.c_str(), message.length(), 0);
+
+    if (sent < 0) {
+        std::cerr << "send error to client " << fd << ": " << strerror(errno) << std::endl;
+    }
+};
+
