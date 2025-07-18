@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/13 19:04:45 by peli              #+#    #+#             */
-/*   Updated: 2025/07/17 17:50:03 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/18 12:00:46 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -65,5 +65,19 @@ void	client::broadcast(int senderFd, const std::string &message)
 		int fd = it->first;
 		if (fd != senderFd)
 			send(fd, message.c_str(), message.length(), 0);
+	}
+}
+
+void	client::joinChannel(int fd, const std::string &channelName)
+{
+	std::map<std::string, Channel>::iterator it = channels.find(channelName);
+	if (it != channels.end())
+		it->second.name = channelName;
+	else
+	{
+		Channel	newChannel;
+		newChannel.name = channelName;
+		newChannel.members.push_back(fd);
+		channels[channelName] = newChannel;
 	}
 }
