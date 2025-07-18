@@ -1,32 +1,19 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   main.cpp                                           :+:      :+:    :+:   */
+/*   parsing.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/07/12 14:22:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/17 12:26:08 by roespici         ###   ########.fr       */
+/*   Created: 2025/07/17 18:03:54 by roespici          #+#    #+#             */
+/*   Updated: 2025/07/17 18:20:09 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "server.hpp"
+#pragma once
+
 #include "client.hpp"
 
-int main(int argc, char **argv)
-{
-    try
-    {
-        if (argc != 3)
-            throw std::runtime_error("Error");
-
-        server  server;
-        server.parsing(argv[1], argv[2]);
-		server.run();
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-    return 0;
-}
+void	parseCommands(client client, int fd, const std::string &msg);
+void	cmdNick(client client, int fd, const std::string &msg);
+void	cmdJoin(client client, int fd, const std::string &msg);

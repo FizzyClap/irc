@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   client.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
+/*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/13 19:04:45 by peli              #+#    #+#             */
-/*   Updated: 2025/07/13 20:19:11 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/17 17:50:03 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,7 +30,40 @@ void client::add_client(int client_fd)
     Pollfds.push_back(pollfds);
 };
 
-std::vector<pollfd>& client::get_pollfds() 
+std::vector<pollfd>& client::get_pollfds()
 {
     return (Pollfds);
+}
+
+void	client::setNickname(int fd, const std::string &nickname)
+{
+	std::map<int, ClientInfos>::iterator it = clients.find(fd);
+	if (it != clients.end())
+		it->second.nickname = nickname;
+	else
+	{
+		ClientInfos	infos;
+		infos.fd = fd;
+		infos.nickname = nickname;
+		clients[fd] = infos;
+	}
+}
+
+std::string	client::getNickname(int fd)
+{
+	std::map<int, ClientInfos>::iterator it = clients.find(fd);
+	if (it != clients.end())
+		return (it->second.nickname);
+	return ("");
+}
+
+void	client::broadcast(int senderFd, const std::string &message)
+{
+	std::map<int, ClientInfos>::iterator it;
+	for (it = clients.begin(); it != clients.end(); ++it)
+	{
+		int fd = it->first;
+		if (fd != senderFd)
+			send(fd, message.c_str(), message.length(), 0);
+	}
 }

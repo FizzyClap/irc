@@ -3,14 +3,16 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
+/*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:03:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/14 15:37:44 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/17 18:10:12 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "server.hpp"
+
+void	cleanMessage(std::string &message);
 
 server::server()
 {
@@ -47,8 +49,6 @@ void server::parsing(char *argv1, char *argv2)
         throw std::runtime_error("Port no utilisable");
     if (argv2 != NULL)
         password = argv2;
-    std::cout << "port is :" << port << std::endl;
-    std::cout << "password is :" << password << std::endl;
     creat_socket();
 };
 
@@ -89,7 +89,7 @@ void server::run()
             continue;
         }
         for (size_t i = 0; i < poll_fds.size(); i++)
-        {                
+        {
             if (poll_fds[i].fd == socket_fd)
             {
                 if (POLLIN & poll_fds[i].revents)
@@ -101,7 +101,7 @@ void server::run()
                     if (new_client < 0)
                     {
                         std::cerr << "client connect fail: " << strerror(errno) << std::endl;
-                        continue; 
+                        continue;
                     }
                     client_.add_client(new_client);
                 }
@@ -109,11 +109,13 @@ void server::run()
             else
             {
                 char buffer[1024];
-                ssize_t j =recv(poll_fds[i].fd, buffer, sizeof(buffer), 0);
+                ssize_t j = recv(poll_fds[i].fd, buffer, sizeof(buffer), 0);
                 if (j > 0)
                 {
-                    // Robin tu peux commencer d'ici;
-                    //you process the message (for example, check if it's a command like /nick, /join, etc);
+					buffer[j] = '\0';
+					std::string msg(buffer);
+					cleanMessage(msg);
+					parseCommands(client_, poll_fds[i].fd, msg);
                 }
                 else
                 {
@@ -136,3 +138,7 @@ void    send_to_client(int fd, const std::string& message)
     }
 };
 
+void	cleanMessage(std::string &message)
+{
+	message.erase(message.find_last_not_of(" \r\n") + 1);
+}
