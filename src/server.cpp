@@ -6,11 +6,12 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:03:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/17 18:10:12 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/23 14:49:40 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "server.hpp"
+#include "parsing.hpp"
 
 void	cleanMessage(std::string &message);
 
@@ -104,6 +105,10 @@ void server::run()
                         continue;
                     }
                     client_.add_client(new_client);
+					ClientInfos infos;
+					infos.fd = new_client;
+					infos.nickname = "";
+					clientsMap[new_client] = infos;
                 }
             }
             else
@@ -115,7 +120,7 @@ void server::run()
 					buffer[j] = '\0';
 					std::string msg(buffer);
 					cleanMessage(msg);
-					parseCommands(client_, poll_fds[i].fd, msg);
+					parseCommands(*this, client_, poll_fds[i].fd, msg);
                 }
                 else
                 {
@@ -141,4 +146,54 @@ void    send_to_client(int fd, const std::string& message)
 void	cleanMessage(std::string &message)
 {
 	message.erase(message.find_last_not_of(" \r\n") + 1);
+}
+
+void server::joinChannel(int fd, const std::string &channelName)
+{
+	channelsMap[channelName].name = channelName;
+	channelsMap[channelName].members.insert(fd);
+}
+
+void server::setClientNickname(int fd, const std::string &nickname)
+{
+	clientsMap[fd].nickname = nickname;
+}
+
+std::string server::getClientNickname(int fd)
+{
+	return (clientsMap[fd].nickname);
+}
+
+int server::getClientFd(const std::string &nickname)
+{
+	for (std::map<int, ClientInfos>::iterator it = clientsMap.begin(); it != clientsMap.end(); ++it)
+	{
+		if (it->second.nickname == nickname)
+			return (it->first);
+	}
+	return (-1);
+}
+
+void server::broadcast(int senderFd, const std::string &message)
+{
+	std::cout << "Broadcasting to " << clientsMap.size() << " clientsMap\n";
+	for (std::map<int, ClientInfos>::iterator it = clientsMap.begin(); it != clientsMap.end(); ++it)
+	{
+		std::cout << "Client fd = " << it->second.fd << " nick = " << it->second.nickname << std::endl;
+		int fd = it->first;
+		if (fd != senderFd)
+			send(fd, message.c_str(), message.length(), 0);
+	}
+}
+
+void server::kickClient(server &srv, int fd, const std::string &channelName, const std::string &nickname)
+{
+	std::map<std::string, Channel>::iterator it = channelsMap.find(channelName);
+	if (it != channelsMap.end())
+	{
+		it->second.members.erase(fd);
+		std::string kickMsg = nickname + " has been kicked from " + channelName + ".\n";
+		std::cout << kickMsg;
+		srv.broadcast(fd, kickMsg);
+	}
 }

@@ -1,42 +1,53 @@
 #include "parsing.hpp"
 
-void	parseCommands(client &client, int fd, const std::string &msg)
+void	parseCommands(server &srv, client &client, int fd, const std::string &msg)
 {
-	std::string cmds[] = {"NICK", "JOIN"};
+	(void)client;
+	std::string cmds[] = {"NICK", "JOIN", "KICK"};
 	std::string cmd = msg.substr(0, msg.find_first_of(" "));
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		if (cmd == cmds[i])
 			switch (i)
 			{
 				case 0:
-					cmdNick(client, fd, msg);
+					cmdNick(srv, fd, msg);
 					return;
 				case 1:
-					cmdJoin(client, fd, msg);
+					cmdJoin(srv, fd, msg);
+					return;
+				case 2:
+					cmdKick(srv, msg);
 					return;
 			}
 	}
 }
 
-void cmdNick(client &client, int fd, const std::string &msg)
+void cmdNick(server &srv, int fd, const std::string &msg)
 {
-	std::string oldNickname = client.getNickname(fd);
+	std::string oldNickname = srv.getClientNickname(fd);
 	std::string nickname = msg.substr(5);
-	client.setNickname(fd, nickname);
+	srv.setClientNickname(fd, nickname);
 	std::string nickMsg;
 	if (oldNickname.empty())
 		nickMsg = "Introducing new nick \"" + nickname + "\"\r\n";
 	else
 		nickMsg = oldNickname + " changed is nickname to " + nickname + "\r\n";
-	std::cout << nickMsg << std::endl;
-	client.broadcast(fd, nickMsg);
+	srv.broadcast(fd, nickMsg);
 }
 
-void cmdJoin(client &client, int fd, const std::string &msg)
+void cmdJoin(server &srv, int fd, const std::string &msg)
 {
 	std::string	channelName = msg.substr(5);
-	client.joinChannel(fd, channelName);
-	std::string	joinMsg = client.getNickname(fd) + " has joined " + channelName + ".\n";
-	client.broadcast(fd, joinMsg);
+	srv.joinChannel(fd, channelName);
+	std::string	joinMsg = srv.getClientNickname(fd) + " has joined " + channelName + ".\n";
+	srv.broadcast(fd, joinMsg);
+}
+
+void cmdKick(server &srv, const std::string &msg)
+{
+	std::string leftover = msg.substr(5);
+	std::string channelName = leftover.substr(0, leftover.find_first_of(" "));
+	std::string clientName = leftover.substr(leftover.find_first_of(" ") + 1);
+	srv.kickClient(srv, srv.getClientFd(clientName), channelName, clientName);
 }
