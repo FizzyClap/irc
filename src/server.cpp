@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:03:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/24 12:17:32 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/24 16:09:53 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -108,7 +108,14 @@ void server::run()
 					ClientInfos infos;
 					infos.fd = new_client;
 					infos.nickname = "";
+					infos.username = "";
+					infos.hostname = "";
+					infos.servername = "";
+					infos.realname = "";
 					infos.authenticated = false;
+					infos.registered = false;
+					infos.userSet = false;
+					infos.nickSet = false;
 					clientsMap[new_client] = infos;
                     continue;
             }
@@ -160,9 +167,24 @@ void server::setClientNickname(int fd, const std::string &nickname)
 	clientsMap[fd].nickname = nickname;
 }
 
-std::string server::getClientNickname(int fd)
+void server::setClientUsername(int fd, const std::string &username)
 {
-	return (clientsMap[fd].nickname);
+	clientsMap[fd].username = username;
+}
+
+void server::setClientHostname(int fd, const std::string &hostname)
+{
+	clientsMap[fd].hostname = hostname;
+}
+
+void server::setClientServername(int fd, const std::string &servername)
+{
+	clientsMap[fd].servername = servername;
+}
+
+void server::setClientRealname(int fd, const std::string &realname)
+{
+	clientsMap[fd].realname = realname;
 }
 
 int server::getClientFd(const std::string &nickname)
@@ -180,19 +202,19 @@ void server::broadcast(int senderFd, const std::string &message)
 	for (std::map<int, ClientInfos>::iterator it = clientsMap.begin(); it != clientsMap.end(); ++it)
 	{
 		int fd = it->first;
-		if (fd != senderFd)
+		if (fd != senderFd && it->second.registered)
 			send(fd, message.c_str(), message.length(), 0);
 	}
 }
 
-void server::kickClient(server &srv, int fd, const std::string &channelName, const std::string &nickname)
+void server::kickClient(int fd, const std::string &channelName, const std::string &nickname)
 {
 	std::map<std::string, Channel>::iterator it = channelsMap.find(channelName);
 	if (it != channelsMap.end())
 	{
 		it->second.members.erase(fd);
 		std::string kickMsg = nickname + " has been kicked from " + channelName + ".\n";
-		srv.broadcast(fd, kickMsg);
+		this->broadcast(fd, kickMsg);
 	}
 }
 
