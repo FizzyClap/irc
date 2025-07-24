@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
+/*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:03:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/23 17:07:33 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/24 12:17:32 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -108,6 +108,7 @@ void server::run()
 					ClientInfos infos;
 					infos.fd = new_client;
 					infos.nickname = "";
+					infos.authenticated = false;
 					clientsMap[new_client] = infos;
                     continue;
             }
@@ -176,10 +177,8 @@ int server::getClientFd(const std::string &nickname)
 
 void server::broadcast(int senderFd, const std::string &message)
 {
-	std::cout << "Broadcasting to " << clientsMap.size() << " clientsMap\n";
 	for (std::map<int, ClientInfos>::iterator it = clientsMap.begin(); it != clientsMap.end(); ++it)
 	{
-		std::cout << "Client fd = " << it->second.fd << " nick = " << it->second.nickname << std::endl;
 		int fd = it->first;
 		if (fd != senderFd)
 			send(fd, message.c_str(), message.length(), 0);
@@ -193,7 +192,21 @@ void server::kickClient(server &srv, int fd, const std::string &channelName, con
 	{
 		it->second.members.erase(fd);
 		std::string kickMsg = nickname + " has been kicked from " + channelName + ".\n";
-		std::cout << kickMsg;
 		srv.broadcast(fd, kickMsg);
 	}
+}
+
+void server::sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg)
+{
+	std::ostringstream oss;
+	oss << ":ircserv " << code << " * " << arg << " :" << msg << "\r\n";
+	send(fd, oss.str().c_str(), oss.str().size(), 0);
+}
+
+bool server::isMemberOfChannel(int fd, const std::string &channelName)
+{
+	std::map<std::string, Channel>::iterator it = channelsMap.find(channelName);
+	if (it == channelsMap.end())
+		return (false);
+	return (it->second.members.find(fd) != it->second.members.end());
 }
