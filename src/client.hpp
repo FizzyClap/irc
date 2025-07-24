@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   client.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
+/*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/13 18:06:15 by peli              #+#    #+#             */
-/*   Updated: 2025/07/23 12:20:45 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/23 16:23:48 by peli             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,7 +21,7 @@
 class client
 {
 	private:
-		std::vector<int> Client_list;
+		// std::vector<int> Client_list;
 		std::vector<pollfd> Pollfds;
 		std::vector<std::string> joinedChannels;
 	public:

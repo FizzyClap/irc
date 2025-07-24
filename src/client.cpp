@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   client.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
+/*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/13 19:04:45 by peli              #+#    #+#             */
-/*   Updated: 2025/07/23 12:38:01 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/23 16:22:24 by peli             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,7 +22,7 @@ client::~client()
 
 void client::add_client(int client_fd)
 {
-    Client_list.push_back(client_fd);
+    // Client_list.push_back(client_fd);
     pollfd pollfds;
     pollfds.fd = client_fd;
     pollfds.events = POLLIN;

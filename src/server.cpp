@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
+/*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:03:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/23 14:49:40 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/23 17:07:33 by peli             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -58,6 +58,11 @@ void server::creat_socket()
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0)
         throw std::runtime_error ("Creat socket error");
+
+    int yes = 1;
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0)
+        throw std::runtime_error("setsockopt(SO_REUSEADDR) failed");
+
     socket_fd = server_fd;
     fcntl(socket_fd, F_SETFL, O_NONBLOCK);
 
@@ -74,44 +79,39 @@ void server::creat_socket()
 void server::run()
 {
     client client_;
-    pollfd server_pollfd;
-    server_pollfd.fd = socket_fd;
-    server_pollfd.events = POLLIN;
-    server_pollfd.revents = 0;
-
     client_.add_client(socket_fd);
     while (true)
     {
         std::vector<pollfd>& poll_fds = client_.get_pollfds();
-        int activity = poll(poll_fds.data(), poll_fds.size(), 0);// .data() → donne un pollfd*, c’est ce que poll() attend.
+        int activity = poll(poll_fds.data(), poll_fds.size(), 100);// .data() → donne un pollfd*, c’est ce que poll() attend.
         if (activity < 0)
         {
             std::cerr << "poll fail: " << strerror(errno) << std::endl;
             continue;
         }
-        for (size_t i = 0; i < poll_fds.size(); i++)
+        for (size_t i = 0; i < poll_fds.size(); ++i)
         {
-            if (poll_fds[i].fd == socket_fd)
+            if (poll_fds[i].fd == socket_fd && (poll_fds[i].revents & POLLIN))
             {
-                if (POLLIN & poll_fds[i].revents)
-                {
                     //connect;
                     struct sockaddr_in client_addr;
                     socklen_t client_len = sizeof(client_addr);
                     int new_client = accept(socket_fd, (struct sockaddr*)&client_addr, &client_len);
                     if (new_client < 0)
                     {
-                        std::cerr << "client connect fail: " << strerror(errno) << std::endl;
+                        std::cerr << "Client connect fail: " << strerror(errno) << std::endl;
                         continue;
                     }
+                    fcntl(new_client, F_SETFL, O_NONBLOCK);
+                    std::cout << "Client connected: fd = " << new_client << std::endl;
                     client_.add_client(new_client);
 					ClientInfos infos;
 					infos.fd = new_client;
 					infos.nickname = "";
 					clientsMap[new_client] = infos;
-                }
+                    continue;
             }
-            else
+            if (poll_fds[i].revents & POLLIN)
             {
                 char buffer[1024];
                 ssize_t j = recv(poll_fds[i].fd, buffer, sizeof(buffer), 0);
