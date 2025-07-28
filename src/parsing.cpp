@@ -4,17 +4,13 @@ std::vector<std::string> split(const std::string &msg);
 
 typedef void (*CommandHandler)(server&, int, const std::vector<std::string>&);
 
-void parseCommands(server &srv, client &client, int fd, const std::string &msg)
+void parseCommands(server &srv, int fd, const std::string &msg)
 {
-	(void)client;
-
 	std::string cmds[] = {"PASS", "NICK", "USER", "JOIN", "KICK", "PRIVMSG", "INVITE", "TOPIC", "MODE"};
 	CommandHandler handlers[] = {
 		cmdPass, cmdNick, cmdUser, cmdJoin, cmdKick, cmdPrivMsg, cmdInvite, cmdTopic, cmdMode
 	};
-
 	std::vector<std::string> tokens = split(msg);
-
 	for (int i = 0; i < 9; i++)
 	{
 		if (tokens[0] == cmds[i])
@@ -27,15 +23,8 @@ void parseCommands(server &srv, client &client, int fd, const std::string &msg)
 
 void cmdPass(server &srv, int fd, const std::vector<std::string> &tokens)
 {
-	if (errorParams(srv, fd, tokens, 2, 2) || isAuthenticated(srv, fd, tokens[0]))
+	if (errorPass(srv, fd, tokens))
 		return ;
-	std::string password = tokens[1];
-	if (password != srv.getPassword())
-	{
-		srv.sendError(fd, "464", tokens[0], "Password incorrect");
-		//fermer le client
-		return ;
-	}
 	srv.getClientInfos(fd).authenticated = true;
 }
 
@@ -132,39 +121,23 @@ void cmdMode(server &srv, int fd, const std::vector<std::string> &tokens)
 		return ;
 	std::string channelName = tokens[1];
 	std::string mode = tokens[2];
-	bool adding = false;
-	bool retiring = false;
 	int params = 0;
+	bool sign = false;
 	if (mode[0] == '+')
-		adding = true;
-	else if (mode[0] == '-')
-		retiring = true;
+		sign = true;
 	for (size_t i = 1; i < mode.length(); i++)
 	{
 		char c = mode[i];
 		if (c == 'i')
-		{
-			if (adding)
-				srv.enableInviteOnly(channelName);
-			else if (retiring)
-				srv.disableInviteOnly(channelName);
-		}
+			srv.changeInviteOnly(channelName, sign);
 		else if (c == 't')
-		{
-			if (adding)
-				srv.enableTopicRestriction(channelName);
-			else if (retiring)
-				srv.disableTopicRestriction(channelName);
-		}
+				srv.changeTopicRestriction(channelName, sign);
 		else if (c == 'k')
 		{
 			std::string key = "";
 			if (!fillArg(srv, fd, tokens, key, params))
 				return ;
-			if (adding)
-				srv.enableKey(channelName, key);
-			else if (retiring)
-				srv.disableKey(channelName);
+			srv.changeKey(channelName, key, sign);
 		}
 		else if (c == 'o')
 		{
@@ -172,20 +145,14 @@ void cmdMode(server &srv, int fd, const std::vector<std::string> &tokens)
 			if (!fillArg(srv, fd, tokens, user, params))
 				return ;
 			int targetFd = srv.getClientFd(user);
-			if (adding)
-				srv.addOperator(targetFd, channelName);
-			else if (retiring)
-				srv.retireOperator(targetFd, channelName);
+			srv.changeOperator(channelName, targetFd, sign);
 		}
 		else if (c == 'l')
 		{
 			std::string limit = "";
 			if (!fillArg(srv, fd, tokens, limit, params))
 				return ;
-			if (adding)
-				srv.enableUserLimit(fd, channelName, limit);
-			else if (retiring)
-				srv.disableUserLimit(channelName);
+			srv.changeUserLimit(fd, channelName, limit, sign);
 		}
 		else
 		{
@@ -210,6 +177,19 @@ bool fillArg(server &srv, int fd, const std::vector<std::string> tokens, std::st
 	}
 	params++;
 	return (true);
+}
+
+bool errorPass(server &srv, int fd, const std::vector<std::string> tokens)
+{
+	if (errorParams(srv, fd, tokens, 2, 2) || isAuthenticated(srv, fd, tokens[0]))
+		return (true);
+	std::string password = tokens[1];
+	if (password != srv.getPassword())
+	{
+		srv.sendError(fd, "464", tokens[0], "Password incorrect");
+		return (true);
+	}
+	return (false);
 }
 
 bool errorUser(server &srv, int fd, const std::vector<std::string> tokens)
@@ -272,7 +252,7 @@ bool errorJoin(server &srv, int fd, const std::vector<std::string> tokens)
 
 bool errorKick(server &srv, int kickerFd, const std::vector<std::string> tokens)
 {
-	if (!isAuthenticated(srv, kickerFd, tokens[0]) || !isRegistered(srv, kickerFd, tokens[0]) || !srv.isOperator(kickerFd, tokens[1]) \
+	if (!isAuthenticated(srv, kickerFd, tokens[0]) || !isRegistered(srv, kickerFd, tokens[0]) || !srv.getChannel(tokens[1]).isOperator(kickerFd) \
 		|| errorParams(srv, kickerFd, tokens, 3, 4))
 		return (true);
 	std::string channelName = tokens[1];
@@ -280,9 +260,9 @@ bool errorKick(server &srv, int kickerFd, const std::vector<std::string> tokens)
 	int targetFd = srv.getClientFd(targetName);
 	if (tokens.size() == 4 && tokens[3][0] != ':')
 		srv.sendError(kickerFd, "461", tokens[0], "Invalid parameter");
-	else if (!srv.isMemberOfChannel(kickerFd, channelName))
+	else if (!srv.getChannel(channelName).isMember(kickerFd))
 		srv.sendError(kickerFd, "442", channelName, "You're not on that channel");
-	else if (!srv.isMemberOfChannel(targetFd, channelName))
+	else if (!srv.getChannel(channelName).isMember(targetFd))
 		srv.sendError(kickerFd, "441", targetName + " " + channelName, "They aren't on that channel");
 	else
 		return (false);
@@ -324,9 +304,9 @@ bool errorInvite(server &srv, int senderFd, const std::vector<std::string> token
 		srv.sendError(senderFd, "401", targetNickname, "No such nick");
 	else if (!srv.isChannelExist(channelName))
 		srv.sendError(senderFd, "403", channelName, "No such channel");
-	else if (!srv.isMemberOfChannel(senderFd, channelName))
+	else if (!srv.getChannel(channelName).isMember(senderFd))
 		srv.sendError(senderFd, "442", channelName, "You're not on that channel");
-	else if (srv.isMemberOfChannel(srv.getClientFd(targetNickname), channelName))
+	else if (srv.getChannel(channelName).isMember(srv.getClientFd(targetNickname)))
 		srv.sendError(senderFd, "443", targetNickname, "is already on channel");
 	else
 		return (false);
@@ -342,7 +322,7 @@ bool errorTopic(server &srv, int fd, const std::vector<std::string> tokens)
 		srv.sendError(fd, "461", tokens[0], "Invalid parameter");
 	else if (!srv.isChannelExist(channelName))
 		srv.sendError(fd, "403", channelName, "No such channel");
-	else if (!srv.isMemberOfChannel(fd, channelName))
+	else if (!srv.getChannel(channelName).isMember(fd))
 		srv.sendError(fd, "442", channelName, "You're not on that channel");
 	else
 		return (false);
@@ -359,7 +339,7 @@ bool errorMode(server &srv, int fd, const std::vector<std::string> tokens)
 		return (true);
 	}
 	std::string channelName = tokens[1];
-	if (!srv.isOperator(fd, channelName))
+	if (!srv.getChannel(channelName).isOperator(fd))
 		srv.sendError(fd, "482", srv.getClientNickname(fd) + " " + channelName, "You're not channel operator");
 	else if (tokens[2][0] != '+' && tokens[2][0] != '-')
 		srv.sendError(fd, "461", tokens[0], "Invalid parameter");

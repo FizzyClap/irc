@@ -11,7 +11,8 @@ CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -g -fsanitize=address
 SRC = ./src/main.cpp \
 	./src/server.cpp \
 	./src/client.cpp \
-	./src/parsing.cpp
+	./src/parsing.cpp \
+	./src/channel.cpp
 
 OBJ = $(SRC:.cpp=.o)
 

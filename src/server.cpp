@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:03:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/28 16:29:53 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/28 18:12:28 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -128,7 +128,7 @@ void server::run()
 					buffer[j] = '\0';
 					std::string msg(buffer);
 					cleanMessage(msg);
-					parseCommands(*this, client_, poll_fds[i].fd, msg);
+					parseCommands(*this, poll_fds[i].fd, msg);
                 }
                 else
                 {
@@ -160,26 +160,19 @@ bool server::joinChannel(int fd, const std::string &channelName, const std::stri
 {
 	if (channelsMap.find(channelName) == channelsMap.end())
 	{
-		channelsMap[channelName].name = channelName;
-		channelsMap[channelName].topic = "";
-		channelsMap[channelName].inviteOnly = false;
-		channelsMap[channelName].topicRestricted = false;
-		channelsMap[channelName].keyEnabled = false;
-		channelsMap[channelName].userLimitEnabled = false;
-		channelsMap[channelName].key = "";
-		channelsMap[channelName].userLimit = 0;
-		if (channelsMap[channelName].operators.empty())
-			channelsMap[channelName].operators.insert(fd);
+		channelsMap[channelName] = Channel(channelName);
+		channelsMap[channelName].addOperator(fd);
 	}
-	if (this->getModeInvite(channelName) && !this->getIsInvited(fd, channelName))
+	Channel &chan = channelsMap[channelName];
+	if (chan.getModeInvite() && !chan.getIsInvited(fd))
 		this->sendError(fd, "473", this->getClientNickname(fd) + " " + channelName, "Cannot join channel (+i)");
-	else if (this->getModeKey(channelName) && this->getKeyPass(channelName) != key)
+	else if (chan.getModeKey() && chan.getKeyPass() != key)
 		this->sendError(fd, "475", this->getClientNickname(fd) + " " + channelName, "Cannot join channel (+k)");
-	else if (this->getModeLimit(channelName) && this->getLimitUser(channelName) == this->getNbUser(channelName))
+	else if (chan.getModeLimit() && chan.getLimitUser() == chan.getNbUser())
 		this->sendError(fd, "471", this->getClientNickname(fd) + " " + channelName, "Cannot join channel (+l)");
 	else
 	{
-		channelsMap[channelName].members.insert(fd);
+		chan.addMembers(fd);
 		return (true);
 	}
 	return (false);
@@ -235,7 +228,7 @@ void server::kickClient(int fd, const std::string &channelName, const std::strin
 	std::map<std::string, Channel>::iterator it = channelsMap.find(channelName);
 	if (it != channelsMap.end())
 	{
-		it->second.members.erase(fd);
+		it->second.removeMembers(fd);
 		std::string kickMsg;
 		if (comment.empty())
 			kickMsg = "Kick " + nickname + " from " + channelName + "\r\n";
@@ -252,20 +245,12 @@ void server::sendError(int fd, const std::string &code, const std::string &arg, 
 	send(fd, oss.str().c_str(), oss.str().size(), 0);
 }
 
-bool server::isMemberOfChannel(int fd, const std::string &channelName)
-{
-	std::map<std::string, Channel>::iterator it = channelsMap.find(channelName);
-	if (it == channelsMap.end())
-		return (false);
-	return (it->second.members.find(fd) != it->second.members.end());
-}
-
 void server::sendPrivMsg(int senderFd, int receiverFd, const std::string &channelName, const std::string &message, bool isChannel)
 {
 	for (std::map<int, ClientInfos>::iterator it = clientsMap.begin(); it != clientsMap.end(); ++it)
 	{
 		int fd = it->second.fd;
-		if ((fd == receiverFd && !isChannel) || (fd != senderFd && isMemberOfChannel(fd, channelName) && isChannel))
+		if ((fd == receiverFd && !isChannel) || (fd != senderFd && this->getChannel(channelName).isMember(fd) && isChannel))
 			send(fd, message.c_str(), message.length(), 0);
 	}
 }
@@ -274,7 +259,7 @@ bool server::isChannelExist(const std::string &channelName)
 {
 	std::map<std::string, Channel> channelsList = this->getChannelList();
 	for (std::map<std::string, Channel>::iterator it = channelsList.begin(); it != channelsList.end(); ++it)
-		if (it->second.name == channelName)
+		if (it->second.getChannelName() == channelName)
 			return (true);
 	return (false);
 }
@@ -293,17 +278,17 @@ void server::inviteClient(int senderFd, int targetFd, const std::string &targetN
 	std::string senderNickname = this->getClientNickname(senderFd);
 	std::string toSend = ":" + senderNickname + " INVITE " + targetNickname + " :" + channelName + "\r\n";
 	send(targetFd, toSend.c_str(), toSend.length(), 0);
-	this->channelsMap[channelName].invited.insert(targetFd);
+	this->channelsMap[channelName].addInvited(targetFd);
 }
 
 bool server::setTopic(int fd, const std::string &topic, const std::string &channelName)
 {
-	if (this->getModeTopic(channelName) && !this->isOperator(fd, channelName))
+	if (channelsMap[channelName].getModeTopic() && !this->channelsMap[channelName].isOperator(fd))
 	{
 		this->sendError(fd, "482", channelName, "You're not channel operator");
 		return (false);
 	}
-	channelsMap[channelName].topic = topic;
+	channelsMap[channelName].setTopic(topic);
 	return (true);
 }
 
@@ -312,7 +297,7 @@ void server::printTopic(int fd, const std::string &channelName, const std::strin
 	if (!newTopic.empty())
 		if (!this->setTopic(fd, newTopic, channelName))
 			return ;
-	std::string topic = channelsMap[channelName].topic;
+	std::string topic = channelsMap[channelName].getTopic();
 	for (std::map<int, ClientInfos>::iterator it = clientsMap.begin(); it != clientsMap.end(); ++it)
 	{
 		std::string message = "";
@@ -320,98 +305,36 @@ void server::printTopic(int fd, const std::string &channelName, const std::strin
 			message = ":" + it->second.nickname + " TOPIC " + channelName + " :" + topic + "\r\n";
 		else
 			message = ":" + it->second.nickname + " TOPIC " + channelName + " :No topic is set\r\n";
-		if (isMemberOfChannel(it->second.fd, channelName))
+		if (channelsMap[channelName].isMember(fd))
 			send(it->second.fd, message.c_str(), message.length(), 0);
 	}
 }
 
-bool server::isOperator(int fd, const std::string &channelName)
+void server::changeInviteOnly(const std::string &channelName, const bool mode)
 {
-	std::map<std::string, Channel>::iterator it = channelsMap.find(channelName);
-	if (it == channelsMap.end())
-		return (false);
-	return (it->second.operators.find(fd) != it->second.operators.end());
+	this->channelsMap[channelName].setInviteMode(mode);
 }
 
-void server::addOperator(int fd, const std::string &channelName)
+void server::changeTopicRestriction(const std::string &channelName, const bool mode)
 {
-	channelsMap[channelName].operators.insert(fd);
+	this->channelsMap[channelName].setTopicMode(mode);
 }
 
-void server::retireOperator(int fd, const std::string &channelName)
+void server::changeKey(const std::string &channelName, const std::string &key, const bool mode)
 {
-	channelsMap[channelName].operators.erase(fd);
+	this->channelsMap[channelName].setKeyMode(mode, key);
 }
 
-void server::enableInviteOnly(const std::string &channelName)
+void server::changeUserLimit(int fd, const std::string &channelName, std::string &limit, const bool mode)
 {
-	if (!channelsMap[channelName].inviteOnly)
-		channelsMap[channelName].inviteOnly = true;
-}
-
-void server::disableInviteOnly(const std::string &channelName)
-{
-	if (channelsMap[channelName].inviteOnly)
-		channelsMap[channelName].inviteOnly = false;
-}
-
-void server::enableTopicRestriction(const std::string &channelName)
-{
-	if (!channelsMap[channelName].topicRestricted)
-		channelsMap[channelName].topicRestricted = true;
-}
-
-void server::disableTopicRestriction(const std::string &channelName)
-{
-	if (channelsMap[channelName].topicRestricted)
-		channelsMap[channelName].topicRestricted = false;
-}
-
-void server::enableKey(const std::string &channelName, const std::string &key)
-{
-	if (!channelsMap[channelName].keyEnabled)
-		channelsMap[channelName].keyEnabled = true;
-	channelsMap[channelName].key = key;
-}
-
-void server::disableKey(const std::string &channelName)
-{
-	if (channelsMap[channelName].keyEnabled)
-		channelsMap[channelName].keyEnabled = false;
-	channelsMap[channelName].key = "";
-}
-
-void server::enableUserLimit(int fd, const std::string &channelName, std::string &limit)
-{
-	int newLimit = atoi(limit);
-	if (newLimit == 0)
-	{
+	if (!this->channelsMap[channelName].setLimitMode(mode, limit))
 		this->sendError(fd, "696", this->getClientNickname(fd) + " " + channelName + " l", "Invalid limit");
-		return ;
-	}
-	if (!channelsMap[channelName].userLimitEnabled)
-		channelsMap[channelName].userLimitEnabled = true;
-	channelsMap[channelName].userLimit = newLimit;
 }
 
-void server::disableUserLimit(const std::string &channelName)
+void server::changeOperator(const std::string &channelName, int fd, const bool mode)
 {
-	if (channelsMap[channelName].userLimitEnabled)
-		channelsMap[channelName].userLimitEnabled = false;
-	channelsMap[channelName].userLimit = 0;
-}
-
-bool server::getIsInvited(int fd, const std::string &channelName)
-{
-	if (channelsMap[channelName].invited.find(fd) != channelsMap[channelName].invited.end())
-		return (true);
-	return (false);
-}
-
-int server::atoi(const std::string &str)
-{
-	std::istringstream iss(str);
-	int result;
-	iss >> result;
-	return (result);
+	if (mode == true)
+		this->channelsMap[channelName].addOperator(fd);
+	else
+		this->channelsMap[channelName].removeOperator(fd);
 }

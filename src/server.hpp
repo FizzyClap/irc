@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 16:02:06 by peli              #+#    #+#             */
-/*   Updated: 2025/07/28 16:28:24 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/28 18:03:50 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,21 +26,8 @@
 #include <set>
 #include <sstream>
 #include "client.hpp"
+#include "channel.hpp"
 
-struct Channel
-{
-	std::string	name;
-	std::string	topic;
-	std::set<int> members;
-	std::set<int> operators;
-	std::set<int> invited;
-	bool inviteOnly;
-	bool topicRestricted;
-	bool keyEnabled;
-	std::string key;
-	bool userLimitEnabled;
-	int userLimit;
-};
 
 struct ClientInfos
 {
@@ -81,21 +68,13 @@ class server
 		void broadcast(int senderFd, const std::string &message);
 		void sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg);
 		void sendPrivMsg(int senderFd, int receiverFd, const std::string &target, const std::string &message, bool isChannel);
-		bool isMemberOfChannel(int fd, const std::string &channelName);
 		bool isChannelExist(const std::string &channelName);
 		bool isNicknameExist(const std::string &nickname);
-		bool isOperator(int fd, const std::string &channelName);
-		void addOperator(int fd, const std::string &channelName);
-		void retireOperator(int fd, const std::string &channelName);
-		void enableInviteOnly(const std::string &channelName);
-		void disableInviteOnly(const std::string &channelName);
-		void enableTopicRestriction(const std::string &channelName);
-		void disableTopicRestriction(const std::string &channelName);
-		void enableKey(const std::string &channelName, const std::string &key);
-		void disableKey(const std::string &channelName);
-		void enableUserLimit(int fd, const std::string &channelName, std::string &limit);
-		void disableUserLimit(const std::string &channelName);
-		int atoi(const std::string &str);
+		void changeInviteOnly(const std::string &channelName, const bool mode);
+		void changeTopicRestriction(const std::string &channelName, const bool mode);
+		void changeKey(const std::string &channelName, const std::string &key, const bool mode);
+		void changeUserLimit(int fd, const std::string &channelName, std::string &limit, const bool mode);
+		void changeOperator(const std::string &channelName, int fd, const bool mode);
 		//SETTER
 		void setClientNickname(int fd, const std::string &nickname);
 		void setClientUsername(int fd, const std::string &username);
@@ -112,16 +91,8 @@ class server
 		int getClientFd(const std::string &nickname);
 		std::map<int, ClientInfos> &getClientsList() {return (clientsMap);};
 		std::map<std::string, Channel> &getChannelList() {return (channelsMap);};
+		Channel &getChannel(const std::string &channelName) {return (channelsMap[channelName]);};
 		ClientInfos& getClientInfos(int fd) {return (clientsMap[fd]);};
 		std::string getPassword() { return (this->password);};
-		std::string getTopic(const std::string &channelName) {return (channelsMap[channelName].topic);};
-		bool getModeInvite(const std::string &channelName) {return (channelsMap[channelName].inviteOnly);};
-		bool getModeTopic(const std::string &channelName) {return (channelsMap[channelName].topicRestricted);};
-		bool getModeKey(const std::string &channelName) {return (channelsMap[channelName].keyEnabled);};
-		bool getModeLimit(const std::string &channelName) {return (channelsMap[channelName].userLimitEnabled);};
-		std::string getKeyPass(const std::string &channelName) {return (channelsMap[channelName].key);};
-		size_t getLimitUser(const std::string &channelName) {return (channelsMap[channelName].userLimit);};
-		size_t getNbUser(const std::string &channelName) {return (channelsMap[channelName].members.size());};
-		bool getIsInvited(int fd, const std::string &channelName);
 };
 

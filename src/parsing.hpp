@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/17 18:03:54 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/28 16:12:20 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/28 18:12:20 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,7 +15,7 @@
 #include "server.hpp"
 #include "client.hpp"
 
-void	parseCommands(server &srv, client &client, int fd, const std::string &msg);
+void	parseCommands(server &srv, int fd, const std::string &msg);
 void	cmdPass(server &srv, int fd, const std::vector<std::string> &tokens);
 void	cmdNick(server &srv, int fd, const std::vector<std::string> &tokens);
 void	cmdUser(server &srv, int fd, const std::vector<std::string> &tokens);
@@ -25,6 +25,7 @@ void	cmdPrivMsg(server &srv, int fd, const std::vector<std::string> &tokens);
 void	cmdInvite(server &srv, int senderFd, const std::vector<std::string> &tokens);
 void	cmdTopic(server &srv, int fd, const std::vector<std::string> &tokens);
 void	cmdMode(server &srv, int fd, const std::vector<std::string> &tokens);
+bool	errorPass(server &srv, int fd, const std::vector<std::string> tokens);
 bool	errorUser(server &srv, int fd, const std::vector<std::string> tokens);
 bool	errorNick(server &srv, int fd, const std::vector<std::string> tokens);
 bool	errorJoin(server &srv, int fd, const std::vector<std::string> tokens);
