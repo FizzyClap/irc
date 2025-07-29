@@ -1,37 +1,22 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   client.cpp                                         :+:      :+:    :+:   */
+/*   PollManager.cpp                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
+/*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/13 19:04:45 by peli              #+#    #+#             */
-/*   Updated: 2025/07/23 16:22:24 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/29 12:20:09 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "client.hpp"
+#include "PollManager.hpp"
 
-client::client(/* args */)
+void PollManager::addClient(int clientFd)
 {
-}
-
-client::~client()
-{
-}
-
-void client::add_client(int client_fd)
-{
-    // Client_list.push_back(client_fd);
-    pollfd pollfds;
-    pollfds.fd = client_fd;
-    pollfds.events = POLLIN;
-    pollfds.revents = 0;
-    Pollfds.push_back(pollfds);
+	pollfd pollfds;
+	pollfds.fd = clientFd;
+	pollfds.events = POLLIN;
+	pollfds.revents = 0;
+	Pollfds.push_back(pollfds);
 };
-
-std::vector<pollfd>& client::get_pollfds()
-{
-    return (Pollfds);
-}
-

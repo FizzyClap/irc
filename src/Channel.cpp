@@ -1,16 +1,16 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   channel.cpp                                        :+:      :+:    :+:   */
+/*   Channel.cpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/28 17:06:02 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/28 17:53:12 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/29 12:07:57 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "channel.hpp"
+#include "Channel.hpp"
 
 Channel::Channel(const std::string &channelName)
 {

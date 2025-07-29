@@ -1,12 +1,12 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   client.hpp                                         :+:      :+:    :+:   */
+/*   PollManager.hpp                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: peli <peli@student.42.fr>                  +#+  +:+       +#+        */
+/*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/13 18:06:15 by peli              #+#    #+#             */
-/*   Updated: 2025/07/23 16:23:48 by peli             ###   ########.fr       */
+/*   Updated: 2025/07/29 12:20:51 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,16 +18,13 @@
 #include <iostream>
 #include <sys/socket.h>
 
-class client
+class PollManager
 {
 	private:
-		// std::vector<int> Client_list;
 		std::vector<pollfd> Pollfds;
-		std::vector<std::string> joinedChannels;
 	public:
-		client(/* args */);
-		~client();
-		void add_client(int client_fd);
-		std::vector<pollfd>& get_pollfds();
+		PollManager() {};
+		~PollManager() {};
+		void addClient(int clientFd);
+		std::vector<pollfd> &getPollFds() {return (Pollfds);};
 };
-

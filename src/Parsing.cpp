@@ -1,10 +1,10 @@
-#include "parsing.hpp"
+#include "Parsing.hpp"
 
 std::vector<std::string> split(const std::string &msg);
 
-typedef void (*CommandHandler)(server&, int, const std::vector<std::string>&);
+typedef void (*CommandHandler)(Server&, int, const std::vector<std::string>&);
 
-void parseCommands(server &srv, int fd, const std::string &msg)
+void parseCommands(Server &srv, int fd, const std::string &msg)
 {
 	std::string cmds[] = {"PASS", "NICK", "USER", "JOIN", "KICK", "PRIVMSG", "INVITE", "TOPIC", "MODE"};
 	CommandHandler handlers[] = {
@@ -21,35 +21,35 @@ void parseCommands(server &srv, int fd, const std::string &msg)
 	}
 }
 
-void cmdPass(server &srv, int fd, const std::vector<std::string> &tokens)
+void cmdPass(Server &srv, int fd, const std::vector<std::string> &tokens)
 {
 	if (errorPass(srv, fd, tokens))
 		return ;
-	srv.getClientInfos(fd).authenticated = true;
+	srv.getClient(fd).setAuthenticated(true);
 }
 
-void cmdUser(server &srv, int fd, const std::vector<std::string> &tokens)
+void cmdUser(Server &srv, int fd, const std::vector<std::string> &tokens)
 {
 	if (!isAuthenticated(srv, fd, tokens[0]) || isRegistered(srv, fd, tokens[0]) || errorParams(srv, fd, tokens, 4, 5) || errorUser(srv, fd, tokens))
 		return ;
-	srv.setClientUsername(fd, tokens[1]);
-	srv.setClientHostname(fd, tokens[2]);
-	srv.setClientServername(fd, tokens[3]);
+	Client &client = srv.getClient(fd);
+	client.setUsername(tokens[1]);
+	client.setHostname(tokens[2]);
+	client.setServername(tokens[3]);
 	std::string realname = eraseColon(tokens, 5);
 	if (!realname.empty())
-		srv.setClientRealname(fd, realname);
-	srv.getClientInfos(fd).userSet = true;
+		client.setRealname(tokens[4]);
 	welcomeMessage(srv, fd);
 }
 
-void cmdNick(server &srv, int fd, const std::vector<std::string> &tokens)
+void cmdNick(Server &srv, int fd, const std::vector<std::string> &tokens)
 {
 	if (errorNick(srv, fd, tokens))
 		return ;
+	Client &client = srv.getClient(fd);
 	std::string nickname = tokens[1];
-	std::string oldNickname = srv.getClientNickname(fd);
-	srv.setClientNickname(fd, nickname);
-	srv.getClientInfos(fd).nickSet = true;
+	std::string oldNickname = client.getNickname();
+	client.setNickname(nickname);
 	welcomeMessage(srv, fd);
 	std::string nickMsg;
 	if (oldNickname.empty())
@@ -59,7 +59,7 @@ void cmdNick(server &srv, int fd, const std::vector<std::string> &tokens)
 	srv.broadcast(fd, nickMsg);
 }
 
-void cmdJoin(server &srv, int fd, const std::vector<std::string> &tokens)
+void cmdJoin(Server &srv, int fd, const std::vector<std::string> &tokens)
 {
 	if (errorJoin(srv, fd, tokens))
 		return ;
@@ -67,11 +67,12 @@ void cmdJoin(server &srv, int fd, const std::vector<std::string> &tokens)
 	std::string key = eraseColon(tokens, 3);
 	if (!srv.joinChannel(fd, channelName, key))
 		return ;
-	std::string	joinMsg = ":" + srv.getClientNickname(fd) + " JOIN :" + channelName + "\r\n";
+	Client client = srv.getClient(fd);
+	std::string	joinMsg = ":" + srv.getClient(fd).getNickname() + " JOIN :" + channelName + "\r\n";
 	srv.broadcast(fd, joinMsg);
 }
 
-void cmdKick(server &srv, int kickerFd, const std::vector<std::string> &tokens)
+void cmdKick(Server &srv, int kickerFd, const std::vector<std::string> &tokens)
 {
 	if (errorKick(srv, kickerFd, tokens))
 		return ;
@@ -82,7 +83,7 @@ void cmdKick(server &srv, int kickerFd, const std::vector<std::string> &tokens)
 	srv.kickClient(targetFd, channelName, targetName, comment);
 }
 
-void cmdPrivMsg(server &srv, int senderFd, const std::vector<std::string> &tokens)
+void cmdPrivMsg(Server &srv, int senderFd, const std::vector<std::string> &tokens)
 {
 	if (errorPrivMsg(srv, senderFd, tokens))
 		return ;
@@ -92,11 +93,11 @@ void cmdPrivMsg(server &srv, int senderFd, const std::vector<std::string> &token
 		isChannel = true;
 	std::string message = eraseColon(tokens, tokens.size());
 	int targetFd = srv.getClientFd(target);
-	std::string toSend = ":" + srv.getClientNickname(senderFd) + " PRIVMSG " + target + " :" + message + "\r\n";
+	std::string toSend = ":" + srv.getClient(senderFd).getNickname() + " PRIVMSG " + target + " :" + message + "\r\n";
 	srv.sendPrivMsg(senderFd, targetFd, target, message, isChannel);
 }
 
-void cmdInvite(server &srv, int senderFd, const std::vector<std::string> &tokens)
+void cmdInvite(Server &srv, int senderFd, const std::vector<std::string> &tokens)
 {
 	if (errorInvite(srv, senderFd, tokens))
 		return ;
@@ -106,7 +107,7 @@ void cmdInvite(server &srv, int senderFd, const std::vector<std::string> &tokens
 	srv.inviteClient(senderFd, targetFd, targetNickname, channelName);
 }
 
-void cmdTopic(server &srv, int fd, const std::vector<std::string> &tokens)
+void cmdTopic(Server &srv, int fd, const std::vector<std::string> &tokens)
 {
 	if (errorTopic(srv, fd, tokens))
 		return ;
@@ -115,7 +116,7 @@ void cmdTopic(server &srv, int fd, const std::vector<std::string> &tokens)
 	srv.printTopic(fd, channelName, topic);
 }
 
-void cmdMode(server &srv, int fd, const std::vector<std::string> &tokens)
+void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 {
 	if (errorMode(srv, fd, tokens))
 		return ;
@@ -128,41 +129,45 @@ void cmdMode(server &srv, int fd, const std::vector<std::string> &tokens)
 	for (size_t i = 1; i < mode.length(); i++)
 	{
 		char c = mode[i];
-		if (c == 'i')
-			srv.changeInviteOnly(channelName, sign);
-		else if (c == 't')
+		switch (c)
+		{
+			case 'i':
+				srv.changeInviteOnly(channelName, sign);
+				break ;
+			case 't':
 				srv.changeTopicRestriction(channelName, sign);
-		else if (c == 'k')
-		{
-			std::string key = "";
-			if (!fillArg(srv, fd, tokens, key, params))
+				break ;
+			case 'k':
+			{
+				std::string key = "";
+				if (!fillArg(srv, fd, tokens, key, params))
+					return ;
+				srv.changeKey(channelName, key, sign);
+				break ;
+			}
+			case 'o':
+			{
+				std::string user = "";
+				if (!fillArg(srv, fd, tokens, user, params))
+					return ;
+				int targetFd = srv.getClientFd(user);
+				srv.changeOperator(channelName, targetFd, sign);
+			}
+			case 'l':
+			{
+				std::string limit = "";
+				if (!fillArg(srv, fd, tokens, limit, params))
+					return ;
+				srv.changeUserLimit(fd, channelName, limit, sign);
+			}
+			default :
+				srv.sendError(fd, "461", tokens[0], "Invalid parameter");
 				return ;
-			srv.changeKey(channelName, key, sign);
-		}
-		else if (c == 'o')
-		{
-			std::string user = "";
-			if (!fillArg(srv, fd, tokens, user, params))
-				return ;
-			int targetFd = srv.getClientFd(user);
-			srv.changeOperator(channelName, targetFd, sign);
-		}
-		else if (c == 'l')
-		{
-			std::string limit = "";
-			if (!fillArg(srv, fd, tokens, limit, params))
-				return ;
-			srv.changeUserLimit(fd, channelName, limit, sign);
-		}
-		else
-		{
-			srv.sendError(fd, "461", tokens[0], "Invalid parameter");
-			return ;
 		}
 	}
 }
 
-bool fillArg(server &srv, int fd, const std::vector<std::string> tokens, std::string &arg, int &params)
+bool fillArg(Server &srv, int fd, const std::vector<std::string> tokens, std::string &arg, int &params)
 {
 	if (!params && tokens.size() >= 4)
 		arg = tokens[3];
@@ -179,7 +184,7 @@ bool fillArg(server &srv, int fd, const std::vector<std::string> tokens, std::st
 	return (true);
 }
 
-bool errorPass(server &srv, int fd, const std::vector<std::string> tokens)
+bool errorPass(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (errorParams(srv, fd, tokens, 2, 2) || isAuthenticated(srv, fd, tokens[0]))
 		return (true);
@@ -192,7 +197,7 @@ bool errorPass(server &srv, int fd, const std::vector<std::string> tokens)
 	return (false);
 }
 
-bool errorUser(server &srv, int fd, const std::vector<std::string> tokens)
+bool errorUser(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (tokens.size() == 5 && tokens[4][0] != ':')
 		srv.sendError(fd, "461", tokens[0], "Invalid parameter");
@@ -205,7 +210,7 @@ bool errorUser(server &srv, int fd, const std::vector<std::string> tokens)
 	return (true);
 }
 
-bool errorNick(server &srv, int fd, const std::vector<std::string> tokens)
+bool errorNick(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, fd, tokens[0]) || errorParams(srv, fd, tokens, 2, 2))
 		return (true);
@@ -215,10 +220,10 @@ bool errorNick(server &srv, int fd, const std::vector<std::string> tokens)
 		srv.sendError(fd, "432", nickname, "Erroneous nickname");
 		return (true);
 	}
-	std::map<int, ClientInfos> clientsList = srv.getClientsList();
-	for (std::map<int, ClientInfos>::iterator it = clientsList.begin(); it != clientsList.end(); ++it)
+	std::map<int, Client> clientsList = srv.getClientsList();
+	for (std::map<int, Client>::iterator it = clientsList.begin(); it != clientsList.end(); ++it)
 	{
-		if (nickname == it->second.nickname)
+		if (nickname == it->second.getNickname())
 		{
 			srv.sendError(fd, "433", nickname, "Nickname is already in use");
 			return (true);
@@ -227,7 +232,7 @@ bool errorNick(server &srv, int fd, const std::vector<std::string> tokens)
 	return (false);
 }
 
-bool errorJoin(server &srv, int fd, const std::vector<std::string> tokens)
+bool errorJoin(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, fd, tokens[0]) || !isRegistered(srv, fd, tokens[0]) || errorParams(srv, fd, tokens, 2, 3))
 		return (true);
@@ -250,7 +255,7 @@ bool errorJoin(server &srv, int fd, const std::vector<std::string> tokens)
 	return (false);
 }
 
-bool errorKick(server &srv, int kickerFd, const std::vector<std::string> tokens)
+bool errorKick(Server &srv, int kickerFd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, kickerFd, tokens[0]) || !isRegistered(srv, kickerFd, tokens[0]) || !srv.getChannel(tokens[1]).isOperator(kickerFd) \
 		|| errorParams(srv, kickerFd, tokens, 3, 4))
@@ -269,7 +274,7 @@ bool errorKick(server &srv, int kickerFd, const std::vector<std::string> tokens)
 	return (true);
 }
 
-bool errorPrivMsg(server &srv, int senderFd, const std::vector<std::string> tokens)
+bool errorPrivMsg(Server &srv, int senderFd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, senderFd, tokens[0]) || !isRegistered(srv, senderFd, tokens[0]) || errorParams(srv, senderFd, tokens, 3, 3))
 		return (true);
@@ -294,7 +299,7 @@ bool errorPrivMsg(server &srv, int senderFd, const std::vector<std::string> toke
 	return (true);
 }
 
-bool errorInvite(server &srv, int senderFd, const std::vector<std::string> tokens)
+bool errorInvite(Server &srv, int senderFd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, senderFd, tokens[0]) || !isRegistered(srv, senderFd, tokens[0]) || errorParams(srv, senderFd, tokens, 3, 3))
 		return (true);
@@ -313,7 +318,7 @@ bool errorInvite(server &srv, int senderFd, const std::vector<std::string> token
 	return (true);
 }
 
-bool errorTopic(server &srv, int fd, const std::vector<std::string> tokens)
+bool errorTopic(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, fd, tokens[0]) || !isRegistered(srv, fd, tokens[0]) || errorParams(srv, fd, tokens, 2, 3))
 		return (true);
@@ -329,7 +334,7 @@ bool errorTopic(server &srv, int fd, const std::vector<std::string> tokens)
 	return (true);
 }
 
-bool errorMode(server &srv, int fd, const std::vector<std::string> tokens)
+bool errorMode(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, fd, tokens[0]) || !isRegistered(srv, fd, tokens[0]))
 		return (true);
@@ -340,7 +345,7 @@ bool errorMode(server &srv, int fd, const std::vector<std::string> tokens)
 	}
 	std::string channelName = tokens[1];
 	if (!srv.getChannel(channelName).isOperator(fd))
-		srv.sendError(fd, "482", srv.getClientNickname(fd) + " " + channelName, "You're not channel operator");
+		srv.sendError(fd, "482", srv.getClient(fd).getNickname() + " " + channelName, "You're not channel operator");
 	else if (tokens[2][0] != '+' && tokens[2][0] != '-')
 		srv.sendError(fd, "461", tokens[0], "Invalid parameter");
 	else
@@ -371,7 +376,7 @@ std::vector<std::string> split(const std::string &msg)
 	return (result);
 }
 
-bool errorParams(server &srv, int fd, std::vector<std::string> tokens, size_t min_params, size_t max_param)
+bool errorParams(Server &srv, int fd, std::vector<std::string> tokens, size_t min_params, size_t max_param)
 {
 	if (tokens.size() < min_params)
 		srv.sendError(fd, "461", tokens[0], "Not enough parameters");
@@ -382,17 +387,17 @@ bool errorParams(server &srv, int fd, std::vector<std::string> tokens, size_t mi
 	return (true);
 }
 
-bool isRegistered(server &srv, int fd, std::string cmd)
+bool isRegistered(Server &srv, int fd, std::string cmd)
 {
-	ClientInfos infos = srv.getClientInfos(fd);
-	if (infos.userSet && cmd == "USER")
+	Client client = srv.getClient(fd);
+	if (client.isUserSet() && cmd == "USER")
 	{
 		srv.sendError(fd, "462", cmd, "You may not reregister");
 		return (true);
 	}
-	else if (!infos.userSet && cmd == "USER")
+	else if (!client.isUserSet() && cmd == "USER")
 		return (false);
-	else if ((!infos.userSet || !infos.nickSet) && cmd != "USER" && cmd != "NICK")
+	else if ((!client.isUserSet() || !client.isNickSet()) && cmd != "USER" && cmd != "NICK")
 	{
 		srv.sendError(fd, "461", cmd, "You are not registered");
 		return (false);
@@ -400,9 +405,9 @@ bool isRegistered(server &srv, int fd, std::string cmd)
 	return (true);
 }
 
-bool isAuthenticated(server &srv, int fd, std::string cmd)
+bool isAuthenticated(Server &srv, int fd, std::string cmd)
 {
-	bool authenticated = srv.getClientInfos(fd).authenticated;
+	bool authenticated = srv.getClient(fd).isAuthenticated();
 	if (authenticated && cmd == "PASS")
 	{
 		srv.sendError(fd, "462", cmd, "You may not reregister");
@@ -418,13 +423,13 @@ bool isAuthenticated(server &srv, int fd, std::string cmd)
 	return (true);
 }
 
-void welcomeMessage(server &srv, int fd)
+void welcomeMessage(Server &srv, int fd)
 {
-	ClientInfos infos = srv.getClientInfos(fd);
-	if (infos.userSet && infos.nickSet && !infos.registered)
+	Client client = srv.getClient(fd);
+	if (client.isUserSet() && client.isNickSet() && !client.isRegistered())
 	{
-		srv.getClientInfos(fd).registered = true;
-		std::string message = ":ircserv 001 " + infos.nickname + " :Welcome to the IRC server " + infos.nickname + "!\r\n";
+		srv.getClient(fd).setRegistered(true);
+		std::string message = ":ircserv 001 " + client.getNickname() + " :Welcome to the IRC Server " + client.getNickname() + "!\r\n";
 		send(fd, message.c_str(), message.length(), 0);
 	}
 	return ;

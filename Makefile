@@ -9,10 +9,11 @@ CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -g -fsanitize=address
 
 #Fichier sources et objets
 SRC = ./src/main.cpp \
-	./src/server.cpp \
-	./src/client.cpp \
-	./src/parsing.cpp \
-	./src/channel.cpp
+	./src/Server.cpp \
+	./src/Parsing.cpp \
+	./src/PollManager.cpp\
+	./src/Channel.cpp \
+	./src/Client.cpp
 
 OBJ = $(SRC:.cpp=.o)
 

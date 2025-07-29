@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/28 17:04:28 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/28 18:09:56 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/29 11:02:25 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,6 +28,19 @@
 
 class Channel
 {
+	private:
+		std::string	name;
+		std::string	topic;
+		std::set<int> members;
+		std::set<int> operators;
+		std::set<int> invited;
+		bool inviteOnly;
+		bool topicRestricted;
+		bool keyEnabled;
+		std::string key;
+		bool userLimitEnabled;
+		int userLimit;
+
 	public:
 		Channel() {};
 		Channel(const std::string &channelName);
@@ -54,17 +67,4 @@ class Channel
 		void setTopicMode(const bool mode);
 		void setKeyMode(const bool mode, const std::string &key);
 		bool setLimitMode(const bool mode, const std::string &limit);
-
-	private:
-		std::string	name;
-		std::string	topic;
-		std::set<int> members;
-		std::set<int> operators;
-		std::set<int> invited;
-		bool inviteOnly;
-		bool topicRestricted;
-		bool keyEnabled;
-		std::string key;
-		bool userLimitEnabled;
-		int userLimit;
 };

@@ -6,12 +6,12 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 14:22:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/21 14:54:10 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/29 12:27:01 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "server.hpp"
-#include "client.hpp"
+#include "Server.hpp"
+#include "Parsing.hpp"
 
 int main(int argc, char **argv)
 {
@@ -20,9 +20,9 @@ int main(int argc, char **argv)
         if (argc != 3)
             throw std::runtime_error("Error");
 
-        server  server;
-        server.parsing(argv[1], argv[2]);
-		server.run();
+        Server srv;
+        srv.parsing(argv[1], argv[2]);
+		srv.run();
     }
     catch(const std::exception& e)
     {
