@@ -10,7 +10,7 @@ CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -g -fsanitize=address
 #Fichier sources et objets
 SRC = ./src/main.cpp \
 	./src/Server.cpp \
-	./src/Parsing.cpp \
+	./src/CommandHandler.cpp \
 	./src/PollManager.cpp\
 	./src/Channel.cpp \
 	./src/Client.cpp

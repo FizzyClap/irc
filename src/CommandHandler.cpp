@@ -1,6 +1,6 @@
-#include "Parsing.hpp"
+#include "CommandHandler.hpp"
 
-std::vector<std::string> split(const std::string &msg);
+std::vector<std::string> split(const std::string &msg, char separator);
 
 typedef void (*CommandHandler)(Server&, int, const std::vector<std::string>&);
 
@@ -10,7 +10,7 @@ void parseCommands(Server &srv, int fd, const std::string &msg)
 	CommandHandler handlers[] = {
 		cmdPass, cmdNick, cmdUser, cmdJoin, cmdKick, cmdPrivMsg, cmdInvite, cmdTopic, cmdMode
 	};
-	std::vector<std::string> tokens = split(msg);
+	std::vector<std::string> tokens = split(msg, ' ');
 	for (int i = 0; i < 9; i++)
 	{
 		if (tokens[0] == cmds[i])
@@ -63,13 +63,22 @@ void cmdJoin(Server &srv, int fd, const std::vector<std::string> &tokens)
 {
 	if (errorJoin(srv, fd, tokens))
 		return ;
-	std::string channelName = tokens[1];
-	std::string key = eraseColon(tokens, 3);
-	if (!srv.joinChannel(fd, channelName, key))
-		return ;
-	Client client = srv.getClient(fd);
-	std::string	joinMsg = ":" + srv.getClient(fd).getNickname() + " JOIN :" + channelName + "\r\n";
-	srv.broadcast(fd, joinMsg);
+	std::vector<std::string> channelsName = split(tokens[1], ',');
+	std::vector<std::string> keysPass;
+	if (tokens.size() == 3)
+		keysPass = split(tokens[2], ',');
+	for (size_t i = 0; i < channelsName.size(); ++i)
+	{
+		const std::string &channel = channelsName[i];
+		std::string key = "";
+		if (i < keysPass.size())
+			key = keysPass[i];
+		if (!srv.joinChannel(fd, channel, key))
+			return ;
+		Client client = srv.getClient(fd);
+		std::string	joinMsg = ":" + srv.getClient(fd).getNickname() + " JOIN :" + channel + "\r\n";
+		srv.broadcast(fd, joinMsg);
+	}
 }
 
 void cmdKick(Server &srv, int kickerFd, const std::vector<std::string> &tokens)
@@ -236,20 +245,22 @@ bool errorJoin(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, fd, tokens[0]) || !isRegistered(srv, fd, tokens[0]) || errorParams(srv, fd, tokens, 2, 3))
 		return (true);
-	std::string	channelName = tokens[1];
-	if (tokens.size() == 3 && tokens[2][0] != ':')
-		srv.sendError(fd, "461", tokens[0], "Invalid parameter");
-	else if (channelName.empty() || (channelName[0] != '#' && channelName[0] != '&') || channelName.length() > 50)
+	std::vector<std::string> channelsName = split(tokens[1], ',');
+	for (std::vector<std::string>::iterator it = channelsName.begin(); it != channelsName.end(); ++it)
 	{
-		srv.sendError(fd, "476", "JOIN", "Bad Channel Mask");
-		return (true);
-	}
-	for (size_t i = 1; i < channelName.length(); ++i)
-	{
-		if (channelName[i] == ' ' || channelName[i] == ',' || channelName[i] < 0x20)
+		const std::string &channel = *it;
+		if (channel.empty() || (channel[0] != '#' && channel[0] != '&') || channel.length() > 50)
 		{
-			srv.sendError(fd, "476", "JOIN", "Bad Channel Mask");
+			srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask");
 			return (true);
+		}
+		for (size_t i = 1; i < channel.length(); ++i)
+		{
+			if (channel[i] == ' ' || channel[i] == ',' || channel[i] < 0x20)
+			{
+				srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask");
+				return (true);
+			}
 		}
 	}
 	return (false);
@@ -257,17 +268,21 @@ bool errorJoin(Server &srv, int fd, const std::vector<std::string> tokens)
 
 bool errorKick(Server &srv, int kickerFd, const std::vector<std::string> tokens)
 {
-	if (!isAuthenticated(srv, kickerFd, tokens[0]) || !isRegistered(srv, kickerFd, tokens[0]) || !srv.getChannel(tokens[1]).isOperator(kickerFd) \
-		|| errorParams(srv, kickerFd, tokens, 3, 4))
+	if (!isAuthenticated(srv, kickerFd, tokens[0]) || !isRegistered(srv, kickerFd, tokens[0]) || errorParams(srv, kickerFd, tokens, 3, 4))
 		return (true);
 	std::string channelName = tokens[1];
 	std::string targetName = tokens[2];
 	int targetFd = srv.getClientFd(targetName);
+	Channel &chan = srv.getChannel(channelName);
 	if (tokens.size() == 4 && tokens[3][0] != ':')
 		srv.sendError(kickerFd, "461", tokens[0], "Invalid parameter");
-	else if (!srv.getChannel(channelName).isMember(kickerFd))
+	else if (!srv.isChannelExist(channelName))
+		srv.sendError(kickerFd, "403", channelName, "No such channel");
+	else if (!chan.isMember(kickerFd))
 		srv.sendError(kickerFd, "442", channelName, "You're not on that channel");
-	else if (!srv.getChannel(channelName).isMember(targetFd))
+	else if (!chan.isOperator(kickerFd))
+		srv.sendError(kickerFd, "482", srv.getClient(kickerFd).getNickname() + " " + channelName, "You're not channel operator");
+	else if (!chan.isMember(targetFd))
 		srv.sendError(kickerFd, "441", targetName + " " + channelName, "They aren't on that channel");
 	else
 		return (false);
@@ -353,27 +368,35 @@ bool errorMode(Server &srv, int fd, const std::vector<std::string> tokens)
 	return (true);
 }
 
-std::vector<std::string> split(const std::string &msg)
+std::vector<std::string> split(const std::string &msg, char separator)
 {
 	std::vector<std::string> result;
-	std::istringstream iss(msg);
 	std::string token;
 	bool foundColon = false;
-	while (iss >> token)
+	for (size_t i = 0; i < msg.size();)
 	{
-		if (!foundColon && token[0] == ':')
+		if (!foundColon && msg[i] == ':')
 		{
 			foundColon = true;
-			std::string leftover;
-			std::getline(iss, leftover);
-			if (!leftover.empty())
-				token += leftover;
+			token = msg.substr(i);
 			result.push_back(token);
-			break;
+			return (result) ;
 		}
-		result.push_back(token);
+		if (msg[i] == separator)
+		{
+			if (!token.empty())
+			{
+				result.push_back(token);
+				token.clear();
+			}
+			++i;
+		}
+		else
+			token += msg[i++];
 	}
-	return (result);
+	if (!token.empty())
+		result.push_back(token);
+	return result;
 }
 
 bool errorParams(Server &srv, int fd, std::vector<std::string> tokens, size_t min_params, size_t max_param)

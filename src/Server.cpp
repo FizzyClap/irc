@@ -35,19 +35,16 @@ void Server::createSocket()
 {
 	int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_fd < 0)
-		throw std::runtime_error ("Creat socket error");
-
+		throw std::runtime_error ("Create socket error");
 	int yes = 1;
 	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0)
 		throw std::runtime_error("setsockopt(SO_REUSEADDR) failed");
-
 	socket_fd = server_fd;
 	fcntl(socket_fd, F_SETFL, O_NONBLOCK);
-
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port); // pourquoi faut convertir?
 	addr.sin_addr.s_addr = INADDR_ANY;
-	memset(&(addr.sin_zero), 0, 8);
+	//memset(&(addr.sin_zero), 0, 8);
 	if (bind(server_fd, (const sockaddr*)&addr, (socklen_t)sizeof(addr)) != 0)
 		throw std::runtime_error("bind() fail");
 	if (listen(server_fd, SOMAXCONN) == -1)// nombre maximum de connexions entrantes mises en attente
