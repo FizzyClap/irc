@@ -77,6 +77,8 @@ void cmdJoin(Server &srv, int fd, const std::vector<std::string> &tokens)
 			return ;
 		Client client = srv.getClient(fd);
 		std::string	joinMsg = ":" + srv.getClient(fd).getNickname() + " JOIN :" + channel + "\r\n";
+		if (!key.empty())
+			joinMsg = ":" + srv.getClient(fd).getNickname() + " JOIN :" + channel + " using key '" + key + "'\r\n";
 		srv.broadcast(fd, joinMsg);
 	}
 }
