@@ -128,6 +128,11 @@ void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 	if (errorMode(srv, fd, tokens))
 		return ;
 	std::string channelName = tokens[1];
+	if (tokens.size() == 2)
+	{
+		srv.getModes(fd, channelName);
+		return ;
+	}
 	std::string mode = tokens[2];
 	int params = 0;
 	bool sign = false;
@@ -159,6 +164,7 @@ void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 					return ;
 				int targetFd = srv.getClientFd(user);
 				srv.changeOperator(channelName, targetFd, sign);
+				break ;
 			}
 			case 'l':
 			{
@@ -166,6 +172,7 @@ void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 				if (!fillArg(srv, fd, tokens, limit, params))
 					return ;
 				srv.changeUserLimit(fd, channelName, limit, sign);
+				break ;
 			}
 			default :
 				srv.sendError(fd, "461", tokens[0], "Invalid parameter");
@@ -363,11 +370,13 @@ bool errorMode(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, fd, tokens[0]) || !isRegistered(srv, fd, tokens[0]))
 		return (true);
-	if (tokens.size() < 3)
+	if (tokens.size() < 2)
 	{
 		srv.sendError(fd, "461", tokens[0], "Not enough parameters");
 		return (true);
 	}
+	if (tokens.size() == 2)
+		return (false);
 	std::string channelName = tokens[1];
 	if (!srv.getChannel(channelName).isOperator(fd))
 		srv.sendError(fd, "482", srv.getClient(fd).getNickname() + " " + channelName, "You're not channel operator");

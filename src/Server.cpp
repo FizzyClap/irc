@@ -75,7 +75,7 @@ void Server::run()
 						continue;
 					}
 					fcntl(new_client, F_SETFL, O_NONBLOCK);
-					std::cout << "Client connected: fd = " << new_client << std::endl;
+					std::cout << "Client " << new_client << " connected." << std::endl;
 					client.addClient(new_client);
 					_clientsMap[new_client] = Client(new_client);
 					continue;
@@ -159,6 +159,7 @@ void Server::broadcastForJoin(int fd, const std::string &channel, const std::str
 	std::string alreadyIn = ":ircserv 353 " + nickname + " = " + channel + " :" + clientsInChan  + "\r\n";
 	std::string endBroadcast = ":ircserv 366 " + nickname + " " + channel + " :End of /NAMES list\r\n";
 	broadcast(fd, joinMsg, true);
+	getModes(fd, channel);
 	broadcast(fd, aboutTopic, false);
 	broadcast(fd, alreadyIn, false);
 	broadcast(fd, endBroadcast, false);
@@ -204,6 +205,23 @@ void Server::sendPrivMsg(int senderFd, int receiverFd, const std::string &channe
 	}
 }
 
+void Server::getModes(int fd, const std::string &channelName)
+{
+	std::string activeMode = "+";
+	if (getChannel(channelName).getModeInvite())
+		activeMode += "i";
+	if (getChannel(channelName).getModeKey())
+		activeMode += "k";
+	if (getChannel(channelName).getModeLimit())
+		activeMode += "l";
+	if (getChannel(channelName).getModeTopic())
+		activeMode += "t";
+	if (activeMode.length() == 1)
+		return ;
+	std::string fullMsg = ":ircserv 324 " + getClient(fd).getNickname() + " " + channelName + " " + activeMode + "\r\n";
+	broadcast(fd, fullMsg, false);
+	return ;
+}
 bool Server::isChannelExist(const std::string &channelName)
 {
 	std::map<std::string, Channel> channelsList = getChannelList();

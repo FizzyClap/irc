@@ -57,6 +57,7 @@ class Server
 		void broadcastForJoin(int fd, const std::string &channel, const std::string &key);
 		void sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg);
 		void sendPrivMsg(int senderFd, int receiverFd, const std::string &target, const std::string &message, bool isChannel);
+		void getModes(int fd, const std::string &channelName);
 		bool isChannelExist(const std::string &channelName);
 		bool isNicknameExist(const std::string &nickname);
 		void changeInviteOnly(const std::string &channelName, const bool mode);
