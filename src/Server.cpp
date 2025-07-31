@@ -31,44 +31,44 @@ void Server::parsing(const std::string &argv1, const std::string &argv2)
 
 void Server::createSocket()
 {
-	int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (server_fd < 0)
+	int serverFd = socket(AF_INET, SOCK_STREAM, 0);
+	if (serverFd < 0)
 		throw std::runtime_error ("Create socket error");
 	int yes = 1;
-	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0)
+	if (setsockopt(serverFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0)
 		throw std::runtime_error("setsockopt(SO_REUSEADDR) failed");
-	_socket_fd = server_fd;
-	fcntl(_socket_fd, F_SETFL, O_NONBLOCK);
+	_socketFd = serverFd;
+	fcntl(_socketFd, F_SETFL, O_NONBLOCK);
 	_addr.sin_family = AF_INET;
 	_addr.sin_port = htons(_port);
 	_addr.sin_addr.s_addr = INADDR_ANY;
 	memset(&(_addr.sin_zero), 0, 8);
-	if (bind(server_fd, (const sockaddr*)&_addr, (socklen_t)sizeof(_addr)) != 0)
+	if (bind(serverFd, (const sockaddr*)&_addr, (socklen_t)sizeof(_addr)) != 0)
 		throw std::runtime_error("bind() fail");
-	if (listen(server_fd, SOMAXCONN) == -1)
+	if (listen(serverFd, SOMAXCONN) == -1)
 		throw std::runtime_error("listen error");
 };
 
 void Server::run()
 {
-	PollManager client_;
-	client_.addClient(_socket_fd);
+	PollManager client;
+	client.addClient(_socketFd);
 	while (true)
 	{
-		std::vector<pollfd>& poll_fds = client_.getPollFds();
-		int activity = poll(poll_fds.data(), poll_fds.size(), 100);
+		std::vector<pollfd>& pollFds = client.getPollFds();
+		int activity = poll(pollFds.data(), pollFds.size(), 100);
 		if (activity < 0)
 		{
 			std::cerr << "poll fail: " << strerror(errno) << std::endl;
 			continue;
 		}
-		for (size_t i = 0; i < poll_fds.size(); ++i)
+		for (size_t i = 0; i < pollFds.size(); ++i)
 		{
-			if (poll_fds[i].fd == _socket_fd && (poll_fds[i].revents & POLLIN))
+			if (pollFds[i].fd == _socketFd && (pollFds[i].revents & POLLIN))
 			{
 					struct sockaddr_in client_addr;
 					socklen_t client_len = sizeof(client_addr);
-					int new_client = accept(_socket_fd, (struct sockaddr*)&client_addr, &client_len);
+					int new_client = accept(_socketFd, (struct sockaddr*)&client_addr, &client_len);
 					if (new_client < 0)
 					{
 						std::cerr << "Client connect fail: " << strerror(errno) << std::endl;
@@ -76,25 +76,25 @@ void Server::run()
 					}
 					fcntl(new_client, F_SETFL, O_NONBLOCK);
 					std::cout << "Client connected: fd = " << new_client << std::endl;
-					client_.addClient(new_client);
+					client.addClient(new_client);
 					_clientsMap[new_client] = Client(new_client);
 					continue;
 			}
-			if (poll_fds[i].revents & POLLIN)
+			if (pollFds[i].revents & POLLIN)
 			{
 				char buffer[1024];
-				ssize_t j = recv(poll_fds[i].fd, buffer, sizeof(buffer), 0);
+				ssize_t j = recv(pollFds[i].fd, buffer, sizeof(buffer), 0);
 				if (j > 0)
 				{
 					buffer[j] = '\0';
 					std::string msg(buffer);
-					parseCommands(*this, poll_fds[i].fd, msg);
+					parseCommands(*this, pollFds[i].fd, msg);
 				}
 				else
 				{
-					close(poll_fds[i].fd);
-					std::cerr << "Client " << poll_fds[i].fd << " disconnected." << std::endl;
-					poll_fds.erase(poll_fds.begin() + i);
+					close(pollFds[i].fd);
+					std::cerr << "Client " << pollFds[i].fd << " disconnected." << std::endl;
+					pollFds.erase(pollFds.begin() + i);
 					--i;
 				}
 			}

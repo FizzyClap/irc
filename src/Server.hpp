@@ -37,7 +37,7 @@ class Server
 	private:
 		std::string _password;
 		int _port;
-		int _socket_fd;
+		int _socketFd;
 		struct sockaddr_in _addr;
 		std::map<int, Client> _clientsMap;
 		std::map<std::string, Channel> _channelsMap;
