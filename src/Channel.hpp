@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/28 17:04:28 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/29 15:13:55 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/31 09:36:52 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,38 +30,38 @@
 class Channel
 {
 	private:
-		std::string	name;
-		std::string	topic;
-		std::set<int> members;
-		std::set<int> operators;
-		std::set<int> invited;
-		bool inviteOnly;
-		bool topicRestricted;
-		bool keyEnabled;
-		std::string key;
-		bool userLimitEnabled;
-		int userLimit;
+		std::string	_name;
+		std::string	_topic;
+		std::set<int> _members;
+		std::set<int> _operators;
+		std::set<int> _invited;
+		bool _inviteOnly;
+		bool _topicRestricted;
+		bool _keyEnabled;
+		std::string _key;
+		bool _userLimitEnabled;
+		int _userLimit;
 
 	public:
 		Channel() {};
 		Channel(const std::string &channelName);
 		~Channel() {};
-		const std::string &getTopic() const {return (this->topic);};
-		bool getModeInvite() const {return (this->inviteOnly);};
-		bool getModeTopic() const {return (this->topicRestricted);};
-		bool getModeKey() const {return (this->keyEnabled);};
-		bool getModeLimit() const {return (this->userLimitEnabled);};
-		const std::string getKeyPass() const {return (this->key);};
-		size_t getLimitUser() const {return (this->userLimit);};
-		size_t getNbUser() const {return (this->members.size());};
-		const std::string getChannelName() const {return (this->name);};
+		const std::string &getTopic() const {return (_topic);};
+		bool getModeInvite() const {return (_inviteOnly);};
+		bool getModeTopic() const {return (_topicRestricted);};
+		bool getModeKey() const {return (_keyEnabled);};
+		bool getModeLimit() const {return (_userLimitEnabled);};
+		const std::string getKeyPass() const {return (_key);};
+		size_t getLimitUser() const {return (_userLimit);};
+		size_t getNbUser() const {return (_members.size());};
+		const std::string getChannelName() const {return (_name);};
 		bool getIsInvited(int fd) const;
 		void addOperator(int fd);
 		void removeOperator(int fd);
-		bool isOperator(int fd) const {return (this->operators.find(fd) != this->operators.end());};
+		bool isOperator(int fd) const {return (_operators.find(fd) != _operators.end());};
 		void addMembers(int fd);
 		void removeMembers(int fd);
-		bool isMember(int fd) const {return (this->members.find(fd) != this->members.end());};
+		bool isMember(int fd) const {return (_members.find(fd) != _members.end());};
 		void addInvited(int fd);
 		void setTopic(const std::string &topic);
 		void setInviteMode(const bool mode);

@@ -35,12 +35,12 @@ class Channel;
 class Server
 {
 	private:
-		std::string password;
-		int port;
-		int socket_fd;
-		struct sockaddr_in addr;
-		std::map<int, Client> clientsMap;
-		std::map<std::string, Channel> channelsMap;
+		std::string _password;
+		int _port;
+		int _socket_fd;
+		struct sockaddr_in _addr;
+		std::map<int, Client> _clientsMap;
+		std::map<std::string, Channel> _channelsMap;
 
 	public:
 		Server() {};
@@ -64,11 +64,11 @@ class Server
 		void changeKey(const std::string &channelName, const std::string &key, const bool mode);
 		void changeUserLimit(int fd, const std::string &channelName, std::string &limit, const bool mode);
 		void changeOperator(const std::string &channelName, int fd, const bool mode);
-		std::map<int, Client> &getClientsList() {return (clientsMap);};
-		std::map<std::string, Channel> &getChannelList() {return (channelsMap);};
-		Channel &getChannel(const std::string &channelName) {return (channelsMap[channelName]);};
-		Client &getClient(int fd) {return (clientsMap[fd]);};
-		std::string &getPassword() {return (this->password);};
+		std::map<int, Client> &getClientsList() {return (this->_clientsMap);};
+		std::map<std::string, Channel> &getChannelList() {return (this->_channelsMap);};
+		Channel &getChannel(const std::string &channelName) {return (this->_channelsMap[channelName]);};
+		Client &getClient(int fd) {return (this->_clientsMap[fd]);};
+		std::string &getPassword() {return (this->_password);};
 		int getClientFd(const std::string &name);
 };
 

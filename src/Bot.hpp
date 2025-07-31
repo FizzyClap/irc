@@ -8,12 +8,11 @@
 class Bot
 {
 	private:
-		int sockFd;
-		Client botClient;
+		int _sockFd;
+		std::string _password;
 	public:
 		Bot(int socketFd);
 		~Bot() {};
-		Client &getBot() {return (this->botClient);};
 		void sendRawMessage(const std::string &msg);
 		void listen();
 		bool joinChannel(bool &list, const std::string &msg);
@@ -24,4 +23,5 @@ class Bot
 		const std::string hello(const std::string &target) const;
 		const std::string time() const;
 		const std::string roll() const;
+		const std::string &getPassword() const {return (_password);};
 };

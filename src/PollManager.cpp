@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/13 19:04:45 by peli              #+#    #+#             */
-/*   Updated: 2025/07/29 12:20:09 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/31 09:35:48 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,5 +18,5 @@ void PollManager::addClient(int clientFd)
 	pollfds.fd = clientFd;
 	pollfds.events = POLLIN;
 	pollfds.revents = 0;
-	Pollfds.push_back(pollfds);
+	_Pollfds.push_back(pollfds);
 };

@@ -15,7 +15,7 @@ int main()
 		if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) < 0)
 			throw std::runtime_error ("Connexion socket error");
 		Bot bot(sock);
-		bot.sendRawMessage("PASS test");
+		bot.sendRawMessage("PASS " + bot.getPassword());
 		bot.sendRawMessage("NICK bot");
 		bot.sendRawMessage("USER bot bot bot");
 		bot.sendRawMessage("LIST");
@@ -28,12 +28,12 @@ int main()
 
 }
 
-Bot::Bot(int socketFd) : sockFd(socketFd), botClient(socketFd) {};
+Bot::Bot(int socketFd) : _sockFd(socketFd), _password("test") {};
 
 void Bot::sendRawMessage(const std::string &msg)
 {
 	std::string toSend = msg + "\r\n";
-	send(this->sockFd, toSend.c_str(), toSend.length(), 0);
+	send(_sockFd, toSend.c_str(), toSend.length(), 0);
 }
 
 void Bot::listen()
@@ -43,7 +43,7 @@ void Bot::listen()
 	while (true)
 	{
 		memset(buffer, 0, sizeof(buffer));
-		int bytes = recv(this->sockFd, buffer, sizeof(buffer) - 1, 0);
+		int bytes = recv(_sockFd, buffer, sizeof(buffer) - 1, 0);
 		if (bytes <= 0)
 			break ;
 		std::string msg = cleanMessage(buffer);
@@ -51,7 +51,7 @@ void Bot::listen()
 			std::cout << msg << std::endl;
 		if (joinChannel(list, msg))
 			continue ;
-		this->handleCommand(msg);
+		handleCommand(msg);
 	}
 }
 
@@ -69,7 +69,7 @@ bool Bot::joinChannel(bool &list, const std::string &msg)
 			else
 				strToJoin += *it;
 		}
-		this->sendRawMessage(strToJoin);
+		sendRawMessage(strToJoin);
 		return (true);
 	}
 	return (false);
@@ -80,7 +80,7 @@ void Bot::handleCommand(const std::string &msg)
 	std::vector<std::string> tokens = splitForBot(msg);
 	if (tokens.size() != 4 || tokens[1] != "PRIVMSG")
 		return ;
-	std::string target = this->getTarget(tokens);
+	std::string target = getTarget(tokens);
 	std::string cmd = tokens[3].erase(0, 1);
 	std::string reply;
 	if (cmd == "!help")

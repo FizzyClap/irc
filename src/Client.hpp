@@ -10,31 +10,31 @@
 class Client
 {
 	private:
-		int fd;
-		std::string nickname;
-		std::string username;
-		std::string hostname;
-		std::string servername;
-		std::string realname;
-		bool authenticated;
-		bool registered;
-		bool userSet;
-		bool nickSet;
+		int _fd;
+		std::string _nickname;
+		std::string _username;
+		std::string _hostname;
+		std::string _servername;
+		std::string _realname;
+		bool _authenticated;
+		bool _registered;
+		bool _userSet;
+		bool _nickSet;
 
 	public:
 		Client() {};
 		Client(int fd);
 		~Client() {};
-		int getFd() const {return (this->fd);};
-		const std::string &getNickname() const {return (this->nickname);};
-		const std::string &getUsername() const {return (this->username);};
-		const std::string &getHostname() const {return (this->hostname);};
-		const std::string &getServername() const {return (this->servername);};
-		const std::string &getRealname() const {return (this->realname);};
-		bool isAuthenticated() const {return (this->authenticated);};
-		bool isRegistered() const {return (this->registered);};
-		bool isUserSet() const {return (this->userSet);};
-		bool isNickSet() const {return (this->nickSet);};
+		int getFd() const {return (_fd);};
+		const std::string &getNickname() const {return (_nickname);};
+		const std::string &getUsername() const {return (_username);};
+		const std::string &getHostname() const {return (_hostname);};
+		const std::string &getServername() const {return (_servername);};
+		const std::string &getRealname() const {return (_realname);};
+		bool isAuthenticated() const {return (_authenticated);};
+		bool isRegistered() const {return (_registered);};
+		bool isUserSet() const {return (_userSet);};
+		bool isNickSet() const {return (_nickSet);};
 		void setNickname(const std::string &nickname);
 		void setUsername(const std::string &username);
 		void setHostname(const std::string &hostname);
