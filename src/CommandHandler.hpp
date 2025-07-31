@@ -13,9 +13,11 @@
 #pragma once
 
 #include "Server.hpp"
+#include "Utils.hpp"
 
 class Server;
 
+typedef void (*CommandHandler)(Server&, int, const std::vector<std::string>&);
 void	parseCommands(Server &srv, int fd, const std::string &msg);
 void	cmdPass(Server &srv, int fd, const std::vector<std::string> &tokens);
 void	cmdNick(Server &srv, int fd, const std::vector<std::string> &tokens);
@@ -26,6 +28,7 @@ void	cmdPrivMsg(Server &srv, int fd, const std::vector<std::string> &tokens);
 void	cmdInvite(Server &srv, int senderFd, const std::vector<std::string> &tokens);
 void	cmdTopic(Server &srv, int fd, const std::vector<std::string> &tokens);
 void	cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens);
+void	cmdList(Server &srv, int fd, const std::vector<std::string> &tokens);
 bool	errorPass(Server &srv, int fd, const std::vector<std::string> tokens);
 bool	errorUser(Server &srv, int fd, const std::vector<std::string> tokens);
 bool	errorNick(Server &srv, int fd, const std::vector<std::string> tokens);
@@ -38,7 +41,4 @@ bool	errorTopic(Server &srv, int fd, const std::vector<std::string> tokens);
 bool	errorMode(Server &srv, int fd, const std::vector<std::string> tokens);
 bool	isAuthenticated(Server &srv, int fd, std::string cmd);
 bool	isRegistered(Server &srv, int fd, std::string cmd);
-void	welcomeMessage(Server &srv, int fd);
-std::string eraseColon(std::vector<std::string> tokens, size_t size);
-int atoi(const std::string &str);
-bool fillArg(Server &srv, int fd, const std::vector<std::string> tokens, std::string &arg, int &params);
+bool	fillArg(Server &srv, int fd, const std::vector<std::string> tokens, std::string &arg, int &params);

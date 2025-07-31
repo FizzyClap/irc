@@ -30,6 +30,8 @@
 #include "CommandHandler.hpp"
 #include "Client.hpp"
 
+class Channel;
+
 class Server
 {
 	private:
@@ -43,7 +45,7 @@ class Server
 	public:
 		Server() {};
 		~Server() {};
-		void parsing(char *port, char *password);
+		void parsing(const std::string &port, const std::string &password);
 		void createSocket();
 		void run();
 		bool joinChannel(int fd, const std::string &channelName, const std::string &key);
@@ -51,7 +53,8 @@ class Server
 		void inviteClient(int senderFd, int targetFd, const std::string &targetNickname, const std::string &channelName);
 		bool setTopic(int fd, const std::string &topic, const std::string &channelName);
 		void printTopic(int fd, const std::string &channelName, const std::string &topic);
-		void broadcast(int senderFd, const std::string &message);
+		void broadcast(int senderFd, const std::string &message, bool toOthers);
+		void broadcastForJoin(int fd, const std::string &channel, const std::string &key);
 		void sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg);
 		void sendPrivMsg(int senderFd, int receiverFd, const std::string &target, const std::string &message, bool isChannel);
 		bool isChannelExist(const std::string &channelName);
@@ -61,12 +64,11 @@ class Server
 		void changeKey(const std::string &channelName, const std::string &key, const bool mode);
 		void changeUserLimit(int fd, const std::string &channelName, std::string &limit, const bool mode);
 		void changeOperator(const std::string &channelName, int fd, const bool mode);
-		//GETTER
 		std::map<int, Client> &getClientsList() {return (clientsMap);};
 		std::map<std::string, Channel> &getChannelList() {return (channelsMap);};
 		Channel &getChannel(const std::string &channelName) {return (channelsMap[channelName]);};
 		Client &getClient(int fd) {return (clientsMap[fd]);};
-		std::string getPassword() {return (this->password);};
+		std::string &getPassword() {return (this->password);};
 		int getClientFd(const std::string &name);
 };
 

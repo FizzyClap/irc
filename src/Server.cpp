@@ -12,22 +12,20 @@
 
 #include "Server.hpp"
 
-void	cleanMessage(std::string &message);
-
-void Server::parsing(char *argv1, char *argv2)
+void Server::parsing(const std::string &argv1, const std::string &argv2)
 {
-	if (!argv1)
+	if (argv1.empty())
 		throw std::runtime_error("port doesn't exist");
-	for (size_t i = 0; i < strlen(argv1); i++)
+	for (size_t i = 0; i < argv1.length(); i++)
 	{
 		if (!isdigit(static_cast<unsigned char>(argv1[i])))
 			throw std::runtime_error("Port is not numeric");
 	}
-	port = atoi(argv1);
-	if (port > 65535 || port < 1024)
+	this->port = atoi(argv1);
+	if (this->port > 65535 || this->port < 1024)
 		throw std::runtime_error("Port no utilisable");
-	if (argv2 != NULL)
-		password = argv2;
+	if (!argv2.empty())
+		this->password = argv2;
 	createSocket();
 };
 
@@ -42,12 +40,12 @@ void Server::createSocket()
 	socket_fd = server_fd;
 	fcntl(socket_fd, F_SETFL, O_NONBLOCK);
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port); // pourquoi faut convertir?
+	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = INADDR_ANY;
-	//memset(&(addr.sin_zero), 0, 8);
+	memset(&(addr.sin_zero), 0, 8);
 	if (bind(server_fd, (const sockaddr*)&addr, (socklen_t)sizeof(addr)) != 0)
 		throw std::runtime_error("bind() fail");
-	if (listen(server_fd, SOMAXCONN) == -1)// nombre maximum de connexions entrantes mises en attente
+	if (listen(server_fd, SOMAXCONN) == -1)
 		throw std::runtime_error("listen error");
 };
 
@@ -58,7 +56,7 @@ void Server::run()
 	while (true)
 	{
 		std::vector<pollfd>& poll_fds = client_.getPollFds();
-		int activity = poll(poll_fds.data(), poll_fds.size(), 100);// .data() → donne un pollfd*, c’est ce que poll() attend.
+		int activity = poll(poll_fds.data(), poll_fds.size(), 100);
 		if (activity < 0)
 		{
 			std::cerr << "poll fail: " << strerror(errno) << std::endl;
@@ -91,7 +89,6 @@ void Server::run()
 				{
 					buffer[j] = '\0';
 					std::string msg(buffer);
-					cleanMessage(msg);
 					parseCommands(*this, poll_fds[i].fd, msg);
 				}
 				else
@@ -105,20 +102,6 @@ void Server::run()
 		}
 	}
 };
-
-void send_to_client(int fd, const std::string& message)
-{
-	ssize_t sent = send(fd, message.c_str(), message.length(), 0);
-
-	if (sent < 0) {
-		std::cerr << "send error to client " << fd << ": " << strerror(errno) << std::endl;
-	}
-};
-
-void cleanMessage(std::string &message)
-{
-	message.erase(message.find_last_not_of(" \r\n") + 1);
-}
 
 bool Server::joinChannel(int fd, const std::string &channelName, const std::string &key)
 {
@@ -142,14 +125,44 @@ bool Server::joinChannel(int fd, const std::string &channelName, const std::stri
 	return (false);
 }
 
-void Server::broadcast(int senderFd, const std::string &message)
+void Server::broadcast(int senderFd, const std::string &message, bool toOthers)
 {
 	for (std::map<int, Client>::iterator it = clientsMap.begin(); it != clientsMap.end(); ++it)
 	{
-		int fd = it->first;
-		if (fd != senderFd && it->second.isRegistered())
-			send(fd, message.c_str(), message.length(), 0);
+		int receiverFd = it->first;
+		if (!this->getClient(receiverFd).isRegistered() || (!toOthers && receiverFd != senderFd))
+			continue ;
+		for (std::map<std::string, Channel>::iterator chanIt = channelsMap.begin(); chanIt != channelsMap.end(); ++chanIt)
+		{
+			Channel &channel = chanIt->second;
+			if (channel.isMember(senderFd) && channel.isMember(receiverFd))
+			{
+				send(receiverFd, message.c_str(), message.length(), 0);
+				break ;
+			}
+		}
 	}
+}
+
+void Server::broadcastForJoin(int fd, const std::string &channel, const std::string &key)
+{
+	Client client = this->getClient(fd);
+	std::string nickname = client.getNickname();
+	std::string	joinMsg = ":" + nickname + " JOIN :" + channel + "\r\n";
+	if (!key.empty())
+		joinMsg = ":" + nickname + " JOIN :" + channel + " using key '" + key + "'\r\n";
+	std::string aboutTopic = ":ircserv 332 " + nickname + " " + channel + " :" + this->getChannel(channel).getTopic() + "\r\n";
+	std::map<int, Client> clients = this->getClientsList();
+	std::string clientsInChan;
+	for (std::map<int, Client>::iterator it = clients.begin(); it != clients.end(); ++it)
+		if (this->getChannel(channel).isMember(it->first))
+			clientsInChan += it->second.getNickname() + " ";
+	std::string alreadyIn = ":ircserv 353 " + nickname + " = " + channel + " :" + clientsInChan  + "\r\n";
+	std::string endBroadcast = ":ircserv 366 " + nickname + " " + channel + " :End of /NAMES list\r\n";
+	this->broadcast(fd, joinMsg, true);
+	this->broadcast(fd, aboutTopic, false);
+	this->broadcast(fd, alreadyIn, false);
+	this->broadcast(fd, endBroadcast, false);
 }
 
 void Server::kickClient(int fd, const std::string &channelName, const std::string &nickname, const std::string &comment)
@@ -163,7 +176,7 @@ void Server::kickClient(int fd, const std::string &channelName, const std::strin
 			kickMsg = "Kick " + nickname + " from " + channelName + "\r\n";
 		else
 			kickMsg = "Kick " + nickname + " from " + channelName + " using \"" + comment + "\" as the reason\r\n";
-		this->broadcast(fd, kickMsg);
+		this->broadcast(fd, kickMsg, true);
 	}
 }
 

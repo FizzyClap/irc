@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/28 17:06:02 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/29 12:07:57 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/29 15:13:08 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -75,14 +75,6 @@ void Channel::setKeyMode(const bool mode, const std::string &key)
 {
 	this->keyEnabled = mode;
 	this->key = key;
-}
-
-int atoi(const std::string &str)
-{
-	std::istringstream iss(str);
-	int result;
-	iss >> result;
-	return (result);
 }
 
 bool Channel::setLimitMode(const bool mode, const std::string &limit)

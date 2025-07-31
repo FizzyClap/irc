@@ -1,22 +1,24 @@
 #include "CommandHandler.hpp"
 
-std::vector<std::string> split(const std::string &msg, char separator);
-
-typedef void (*CommandHandler)(Server&, int, const std::vector<std::string>&);
-
 void parseCommands(Server &srv, int fd, const std::string &msg)
 {
-	std::string cmds[] = {"PASS", "NICK", "USER", "JOIN", "KICK", "PRIVMSG", "INVITE", "TOPIC", "MODE"};
+	const std::string newMessage = cleanMessage(msg);
+	std::string cmds[] = {"PASS", "NICK", "USER", "JOIN", "KICK", "PRIVMSG", "INVITE", "TOPIC", "MODE", "LIST"};
 	CommandHandler handlers[] = {
-		cmdPass, cmdNick, cmdUser, cmdJoin, cmdKick, cmdPrivMsg, cmdInvite, cmdTopic, cmdMode
+		cmdPass, cmdNick, cmdUser, cmdJoin, cmdKick, cmdPrivMsg, cmdInvite, cmdTopic, cmdMode, cmdList
 	};
-	std::vector<std::string> tokens = split(msg, ' ');
-	for (int i = 0; i < 9; i++)
+	std::vector<std::string> lines = split(newMessage, '\n');
+	for (std::vector<std::string>::iterator it = lines.begin(); it != lines.end(); ++it)
 	{
-		if (tokens[0] == cmds[i])
+		std::string line = cleanMessage(*it);
+		std::vector<std::string> tokens = split(line, ' ');
+		for (int i = 0; i < 10; i++)
 		{
-			handlers[i](srv, fd, tokens);
-			break;
+			if (tokens[0] == cmds[i])
+			{
+				handlers[i](srv, fd, tokens);
+				break ;
+			}
 		}
 	}
 }
@@ -52,11 +54,8 @@ void cmdNick(Server &srv, int fd, const std::vector<std::string> &tokens)
 	client.setNickname(nickname);
 	welcomeMessage(srv, fd);
 	std::string nickMsg;
-	if (oldNickname.empty())
-		nickMsg = "Introducing new nick \"" + nickname + "\"\r\n";
-	else
-		nickMsg = oldNickname + " changed is nickname to " + nickname + "\r\n";
-	srv.broadcast(fd, nickMsg);
+	nickMsg = oldNickname + " NICK :" + nickname + "\r\n";
+	srv.broadcast(fd, nickMsg, true);
 }
 
 void cmdJoin(Server &srv, int fd, const std::vector<std::string> &tokens)
@@ -75,11 +74,7 @@ void cmdJoin(Server &srv, int fd, const std::vector<std::string> &tokens)
 			key = keysPass[i];
 		if (!srv.joinChannel(fd, channel, key))
 			return ;
-		Client client = srv.getClient(fd);
-		std::string	joinMsg = ":" + srv.getClient(fd).getNickname() + " JOIN :" + channel + "\r\n";
-		if (!key.empty())
-			joinMsg = ":" + srv.getClient(fd).getNickname() + " JOIN :" + channel + " using key '" + key + "'\r\n";
-		srv.broadcast(fd, joinMsg);
+		srv.broadcastForJoin(fd, channel, key);
 	}
 }
 
@@ -105,7 +100,7 @@ void cmdPrivMsg(Server &srv, int senderFd, const std::vector<std::string> &token
 	std::string message = eraseColon(tokens, tokens.size());
 	int targetFd = srv.getClientFd(target);
 	std::string toSend = ":" + srv.getClient(senderFd).getNickname() + " PRIVMSG " + target + " :" + message + "\r\n";
-	srv.sendPrivMsg(senderFd, targetFd, target, message, isChannel);
+	srv.sendPrivMsg(senderFd, targetFd, target, toSend, isChannel);
 }
 
 void cmdInvite(Server &srv, int senderFd, const std::vector<std::string> &tokens)
@@ -176,6 +171,18 @@ void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 				return ;
 		}
 	}
+}
+
+void cmdList(Server &srv, int fd, const std::vector<std::string> &tokens)
+{
+	if (errorParams(srv, fd, tokens, 1, 1))
+		return ;
+	std::map<std::string, Channel> chanList = srv.getChannelList();
+	std::string toSend;
+	for (std::map<std::string, Channel>::iterator it = chanList.begin(); it != chanList.end(); ++it)
+		toSend += it->second.getChannelName() + " ";
+	toSend += "\r\n";
+	send(fd, toSend.c_str(), toSend.length(), 0);
 }
 
 bool fillArg(Server &srv, int fd, const std::vector<std::string> tokens, std::string &arg, int &params)
@@ -257,7 +264,7 @@ bool errorJoin(Server &srv, int fd, const std::vector<std::string> tokens)
 			return (true);
 		}
 		for (size_t i = 1; i < channel.length(); ++i)
-		{
+		{(void)tokens;
 			if (channel[i] == ' ' || channel[i] == ',' || channel[i] < 0x20)
 			{
 				srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask");
@@ -370,37 +377,6 @@ bool errorMode(Server &srv, int fd, const std::vector<std::string> tokens)
 	return (true);
 }
 
-std::vector<std::string> split(const std::string &msg, char separator)
-{
-	std::vector<std::string> result;
-	std::string token;
-	bool foundColon = false;
-	for (size_t i = 0; i < msg.size();)
-	{
-		if (!foundColon && msg[i] == ':')
-		{
-			foundColon = true;
-			token = msg.substr(i);
-			result.push_back(token);
-			return (result) ;
-		}
-		if (msg[i] == separator)
-		{
-			if (!token.empty())
-			{
-				result.push_back(token);
-				token.clear();
-			}
-			++i;
-		}
-		else
-			token += msg[i++];
-	}
-	if (!token.empty())
-		result.push_back(token);
-	return result;
-}
-
 bool errorParams(Server &srv, int fd, std::vector<std::string> tokens, size_t min_params, size_t max_param)
 {
 	if (tokens.size() < min_params)
@@ -448,22 +424,4 @@ bool isAuthenticated(Server &srv, int fd, std::string cmd)
 	return (true);
 }
 
-void welcomeMessage(Server &srv, int fd)
-{
-	Client client = srv.getClient(fd);
-	if (client.isUserSet() && client.isNickSet() && !client.isRegistered())
-	{
-		srv.getClient(fd).setRegistered(true);
-		std::string message = ":ircserv 001 " + client.getNickname() + " :Welcome to the IRC Server " + client.getNickname() + "!\r\n";
-		send(fd, message.c_str(), message.length(), 0);
-	}
-	return ;
-}
 
-std::string eraseColon(std::vector<std::string> tokens, size_t size)
-{
-	std::string truncate = "";
-	if (tokens.size() == size)
-		truncate = tokens[size - 1].substr(1);
-	return (truncate);
-}
