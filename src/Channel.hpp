@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/28 17:04:28 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/31 09:36:52 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/31 14:56:31 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -55,6 +55,7 @@ class Channel
 		size_t getLimitUser() const {return (_userLimit);};
 		size_t getNbUser() const {return (_members.size());};
 		const std::string getChannelName() const {return (_name);};
+		std::set<int> getOperators() const {return (_operators);};
 		bool getIsInvited(int fd) const;
 		void addOperator(int fd);
 		void removeOperator(int fd);

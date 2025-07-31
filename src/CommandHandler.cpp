@@ -27,6 +27,14 @@ void cmdPass(Server &srv, int fd, const std::vector<std::string> &tokens)
 {
 	if (errorPass(srv, fd, tokens))
 		return ;
+	std::string password = tokens[1];
+	if (password[0] == ':')
+		password = password.erase(0, 1);
+	if (password != srv.getPassword())
+	{
+		srv.sendError(fd, "464", tokens[0], "Password incorrect");
+		return ;
+	}
 	srv.getClient(fd).setAuthenticated(true);
 }
 
@@ -52,10 +60,10 @@ void cmdNick(Server &srv, int fd, const std::vector<std::string> &tokens)
 	std::string nickname = tokens[1];
 	std::string oldNickname = client.getNickname();
 	client.setNickname(nickname);
-	welcomeMessage(srv, fd);
 	std::string nickMsg;
-	nickMsg = oldNickname + " NICK :" + nickname + "\r\n";
+	nickMsg =  ":" + oldNickname + " NICK :" + nickname + "\r\n";
 	srv.broadcast(fd, nickMsg, true);
+	welcomeMessage(srv, fd);
 }
 
 void cmdJoin(Server &srv, int fd, const std::vector<std::string> &tokens)
@@ -85,6 +93,11 @@ void cmdKick(Server &srv, int kickerFd, const std::vector<std::string> &tokens)
 	std::string channelName = tokens[1];
 	std::string targetName = tokens[2];
 	int targetFd = srv.getClientFd(targetName);
+	if (targetFd == kickerFd)
+	{
+		srv.sendError(kickerFd, "482", targetName + " " + channelName, "Cannot kick yourself");
+		return ;
+	}
 	std::string comment = eraseColon(tokens, 4);
 	std::string kickerName = srv.getClient(kickerFd).getNickname();
 	srv.kickClient(kickerName, targetFd, channelName, targetName, comment);
@@ -214,10 +227,9 @@ bool errorPass(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (errorParams(srv, fd, tokens, 2, 2) || isAuthenticated(srv, fd, tokens[0]))
 		return (true);
-	std::string password = tokens[1];
-	if (password != srv.getPassword())
+	if (tokens[1].empty() || tokens[1].length() > 50)
 	{
-		srv.sendError(fd, "464", tokens[0], "Password incorrect");
+		srv.sendError(fd, "461", tokens[0], "Invalid password syntax");
 		return (true);
 	}
 	return (false);

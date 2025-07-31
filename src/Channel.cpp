@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/28 17:06:02 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/31 09:37:03 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/31 15:08:19 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -34,7 +34,7 @@ void Channel::removeOperator(int fd)
 	_operators.erase(fd);
 }
 
-void Channel::addMembers(int fd)
+void Channel::addMembers(int  fd)
 {
 	_members.insert(fd);
 }

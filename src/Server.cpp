@@ -126,6 +126,15 @@ bool Server::joinChannel(int fd, const std::string &channelName, const std::stri
 
 void Server::broadcast(int senderFd, const std::string &message, bool toOthers)
 {
+	bool inChannel = false;
+	for (std::map<std::string, Channel>::iterator chanIt = _channelsMap.begin(); chanIt != _channelsMap.end(); ++chanIt)
+		if (chanIt->second.isMember(senderFd))
+			inChannel = true;
+	if (!inChannel && getClient(senderFd).isRegistered())
+	{
+		send(senderFd, message.c_str(), message.length(), 0);
+		return ;
+	}
 	for (std::map<int, Client>::iterator it = _clientsMap.begin(); it != _clientsMap.end(); ++it)
 	{
 		int receiverFd = it->first;
@@ -134,7 +143,7 @@ void Server::broadcast(int senderFd, const std::string &message, bool toOthers)
 		for (std::map<std::string, Channel>::iterator chanIt = _channelsMap.begin(); chanIt != _channelsMap.end(); ++chanIt)
 		{
 			Channel &channel = chanIt->second;
-			if (channel.isMember(senderFd) && channel.isMember(receiverFd))
+			if ((channel.isMember(senderFd) && channel.isMember(receiverFd)))
 			{
 				send(receiverFd, message.c_str(), message.length(), 0);
 				break ;
@@ -303,7 +312,14 @@ void Server::changeOperator(const std::string &channelName, int fd, const bool m
 	if (mode == true)
 		_channelsMap[channelName].addOperator(fd);
 	else
+	{
+		if (_channelsMap[channelName].getOperators().size() == 1)
+		{
+			sendError(fd, "482", channelName, "Cannot remove operator");
+			return ;
+		}
 		_channelsMap[channelName].removeOperator(fd);
+	}
 }
 
 int Server::getClientFd(const std::string &name)
