@@ -86,7 +86,8 @@ void cmdKick(Server &srv, int kickerFd, const std::vector<std::string> &tokens)
 	std::string targetName = tokens[2];
 	int targetFd = srv.getClientFd(targetName);
 	std::string comment = eraseColon(tokens, 4);
-	srv.kickClient(targetFd, channelName, targetName, comment);
+	std::string kickerName = srv.getClient(kickerFd).getNickname();
+	srv.kickClient(kickerName, targetFd, channelName, targetName, comment);
 }
 
 void cmdPrivMsg(Server &srv, int senderFd, const std::vector<std::string> &tokens)

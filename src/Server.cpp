@@ -66,7 +66,6 @@ void Server::run()
 		{
 			if (poll_fds[i].fd == socket_fd && (poll_fds[i].revents & POLLIN))
 			{
-					//connect;
 					struct sockaddr_in client_addr;
 					socklen_t client_len = sizeof(client_addr);
 					int new_client = accept(socket_fd, (struct sockaddr*)&client_addr, &client_len);
@@ -165,18 +164,26 @@ void Server::broadcastForJoin(int fd, const std::string &channel, const std::str
 	this->broadcast(fd, endBroadcast, false);
 }
 
-void Server::kickClient(int fd, const std::string &channelName, const std::string &nickname, const std::string &comment)
+void Server::kickClient(const std::string &kickerName, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment)
 {
 	std::map<std::string, Channel>::iterator it = channelsMap.find(channelName);
 	if (it != channelsMap.end())
 	{
-		it->second.removeMembers(fd);
+		Channel &channel = it->second;
+		channel.removeMembers(fd);
 		std::string kickMsg;
 		if (comment.empty())
-			kickMsg = "Kick " + nickname + " from " + channelName + "\r\n";
+			kickMsg = ":" + kickerName + " KICK " + channelName + " " + nickname + "\r\n";
 		else
-			kickMsg = "Kick " + nickname + " from " + channelName + " using \"" + comment + "\" as the reason\r\n";
-		this->broadcast(fd, kickMsg, true);
+			kickMsg = ":" + kickerName + " KICK " + channelName + " " + nickname + " :" + comment + "\r\n";
+		for (std::map<int, Client>::iterator clientIt = clientsMap.begin(); clientIt != clientsMap.end(); ++clientIt)
+		{
+			if (!clientIt->second.isRegistered())
+				continue ;
+			int clientFd = clientIt->first;
+			if (channel.isMember(clientFd) || clientFd == fd)
+				send(clientFd, kickMsg.c_str(), kickMsg.length(), 0);
+		}
 	}
 }
 

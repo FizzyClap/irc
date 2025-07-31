@@ -49,7 +49,7 @@ class Server
 		void createSocket();
 		void run();
 		bool joinChannel(int fd, const std::string &channelName, const std::string &key);
-		void kickClient(int fd, const std::string &channelName, const std::string &nickname, const std::string &comment);
+		void kickClient(const std::string &kickerName, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment);
 		void inviteClient(int senderFd, int targetFd, const std::string &targetNickname, const std::string &channelName);
 		bool setTopic(int fd, const std::string &topic, const std::string &channelName);
 		void printTopic(int fd, const std::string &channelName, const std::string &topic);
