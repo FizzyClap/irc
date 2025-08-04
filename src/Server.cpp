@@ -65,52 +65,61 @@ void Server::run()
 		}
 		for (size_t i = 0; i < pollFds.size(); ++i)
 		{
-			if (pollFds[i].fd == _socketFd && (pollFds[i].revents & POLLIN))
+			int clientFd = pollFds[i].fd;
+			if (clientFd == _socketFd && (pollFds[i].revents & POLLIN))
+				handleNewConnection(client, clientsBuffer);
+			else if (pollFds[i].revents & POLLIN)
 			{
-					struct sockaddr_in client_addr;
-					socklen_t client_len = sizeof(client_addr);
-					int new_client = accept(_socketFd, (struct sockaddr*)&client_addr, &client_len);
-					if (new_client < 0)
-					{
-						std::cerr << "Client connect fail: " << strerror(errno) << std::endl;
-						continue;
-					}
-					fcntl(new_client, F_SETFL, O_NONBLOCK);
-					std::cout << "Client " << new_client << " connected." << std::endl;
-					client.addClient(new_client);
-					_clientsMap[new_client] = Client(new_client);
-					clientsBuffer[new_client] = "";
-					continue;
-			}
-			if (pollFds[i].revents & POLLIN)
-			{
-				int clientFd = pollFds[i].fd;
-				char temp[1024];
-				ssize_t bytesRead = recv(clientFd, temp, sizeof(temp) - 1, 0);
-				if (bytesRead <= 0)
+				if (!handleClientMessage(clientFd, clientsBuffer))
 				{
-					close(clientFd);
-					std::cerr << "Client " << clientFd << " disconnected." << std::endl;
 					removeClient(clientFd);
 					clientsBuffer.erase(clientFd);
 					pollFds.erase(pollFds.begin() + i);
 					--i;
-					continue ;
-				}
-				temp[bytesRead] = '\0';
-				clientsBuffer[clientFd] += temp;
-				size_t pos;
-				while ((pos = clientsBuffer[clientFd].find('\n')) != std::string::npos)
-				{
-					std::string command = clientsBuffer[clientFd].substr(0, pos + 1);
-					parseCommands(*this, clientFd, command);
-					clientsBuffer[clientFd].erase(0, pos + 1);
 				}
 			}
 		}
 	}
 }
 
+void Server::handleNewConnection(PollManager &client, std::map<int, std::string> &clientsBuffer)
+{
+	struct sockaddr_in client_addr;
+	socklen_t client_len = sizeof(client_addr);
+	int new_client = accept(_socketFd, (struct sockaddr*)&client_addr, &client_len);
+	if (new_client < 0)
+	{
+		std::cerr << "Client connect fail: " << strerror(errno) << std::endl;
+		return ;
+	}
+	fcntl(new_client, F_SETFL, O_NONBLOCK);
+	std::cout << "Client " << new_client << " connected." << std::endl;
+	client.addClient(new_client);
+	_clientsMap[new_client] = Client(new_client);
+	clientsBuffer[new_client] = "";
+}
+
+bool Server::handleClientMessage(int clientFd, std::map<int, std::string>& clientsBuffer)
+{
+	char temp[1024];
+	ssize_t bytesRead = recv(clientFd, temp, sizeof(temp) - 1, 0);
+	if (bytesRead <= 0)
+	{
+		close(clientFd);
+		std::cerr << "Client " << clientFd << " disconnected." << std::endl;
+		return (false);
+	}
+	temp[bytesRead] = '\0';
+	clientsBuffer[clientFd] += temp;
+	size_t pos;
+	while ((pos = clientsBuffer[clientFd].find('\n')) != std::string::npos)
+	{
+		std::string command = clientsBuffer[clientFd].substr(0, pos + 1);
+		parseCommands(*this, clientFd, command);
+		clientsBuffer[clientFd].erase(0, pos + 1);
+	}
+	return (true);
+}
 
 bool Server::joinChannel(int fd, const std::string &channelName, const std::string &key)
 {
