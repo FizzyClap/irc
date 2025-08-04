@@ -360,7 +360,6 @@ int Server::getClientFd(const std::string &name)
 
 void Server::removeClient(int fd)
 {
-	Client &client = getClient(fd);
 	for (std::map<std::string, Channel>::iterator it = _channelsMap.begin(); it != _channelsMap.end(); ++it)
 	{
 		Channel &channel = it->second;
@@ -373,7 +372,7 @@ void Server::removeClient(int fd)
 		if (!channel.getNbUser())
 			deleteChannel(channel.getChannelName());
 	}
-	client.~Client();
+	_clientsMap.erase(fd);
 }
 
 void Server::deleteChannel(const std::string &channelName)
