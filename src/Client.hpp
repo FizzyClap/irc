@@ -24,7 +24,7 @@ class Client
 	public:
 		Client() {};
 		Client(int fd);
-		~Client() {};
+		~Client();
 		int getFd() const {return (_fd);};
 		const std::string &getNickname() const {return (_nickname);};
 		const std::string &getUsername() const {return (_username);};

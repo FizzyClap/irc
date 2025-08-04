@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/28 17:04:28 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/31 14:56:31 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/31 19:03:38 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -64,6 +64,7 @@ class Channel
 		void removeMembers(int fd);
 		bool isMember(int fd) const {return (_members.find(fd) != _members.end());};
 		void addInvited(int fd);
+		void removeInvited(int fd);
 		void setTopic(const std::string &topic);
 		void setInviteMode(const bool mode);
 		void setTopicMode(const bool mode);

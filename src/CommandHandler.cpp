@@ -4,6 +4,7 @@ void parseCommands(Server &srv, int fd, const std::string &msg)
 {
 	const std::string newMessage = cleanMessage(msg);
 	std::string cmds[] = {"PASS", "NICK", "USER", "JOIN", "KICK", "PRIVMSG", "INVITE", "TOPIC", "MODE", "LIST"};
+	int cmdSize = sizeof(cmds) / sizeof(cmds[0]);
 	CommandHandler handlers[] = {
 		cmdPass, cmdNick, cmdUser, cmdJoin, cmdKick, cmdPrivMsg, cmdInvite, cmdTopic, cmdMode, cmdList
 	};
@@ -12,13 +13,15 @@ void parseCommands(Server &srv, int fd, const std::string &msg)
 	{
 		std::string line = cleanMessage(*it);
 		std::vector<std::string> tokens = split(line, ' ');
-		for (int i = 0; i < 10; i++)
+		for (int i = 0; i < cmdSize; i++)
 		{
 			if (tokens[0] == cmds[i])
 			{
 				handlers[i](srv, fd, tokens);
 				break ;
 			}
+			if (i == cmdSize - 1)
+				srv.sendError(fd, "421", tokens[0], "Unkwnown command");
 		}
 	}
 }
@@ -107,14 +110,18 @@ void cmdPrivMsg(Server &srv, int senderFd, const std::vector<std::string> &token
 {
 	if (errorPrivMsg(srv, senderFd, tokens))
 		return ;
-	std::string target = tokens[1];
-	bool isChannel = false;
-	if (target[0] == '#' || target[0] == '&')
-		isChannel = true;
-	std::string message = eraseColon(tokens, tokens.size());
-	int targetFd = srv.getClientFd(target);
-	std::string toSend = ":" + srv.getClient(senderFd).getNickname() + " PRIVMSG " + target + " :" + message + "\r\n";
-	srv.sendPrivMsg(senderFd, targetFd, target, toSend, isChannel);
+	std::vector<std::string> destNames = split(tokens[1], ',');
+	for (size_t i = 0; i < destNames.size(); ++i)
+	{
+		std::string target = destNames[i];
+		bool isChannel = false;
+		if (target[0] == '#' || target[0] == '&')
+			isChannel = true;
+		std::string message = eraseColon(tokens, tokens.size());
+		int targetFd = srv.getClientFd(target);
+		std::string toSend = ":" + srv.getClient(senderFd).getNickname() + " PRIVMSG " + target + " :" + message + "\r\n";
+		srv.sendPrivMsg(senderFd, targetFd, target, toSend, isChannel);
+	}
 }
 
 void cmdInvite(Server &srv, int senderFd, const std::vector<std::string> &tokens)
@@ -165,16 +172,18 @@ void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 			case 'k':
 			{
 				std::string key = "";
-				if (!fillArg(srv, fd, tokens, key, params))
-					return ;
+				if (sign == true)
+					if (!fillArg(srv, fd, tokens, key, params))
+						return ;
 				srv.changeKey(channelName, key, sign);
 				break ;
 			}
 			case 'o':
 			{
 				std::string user = "";
-				if (!fillArg(srv, fd, tokens, user, params))
-					return ;
+				if (sign == true)
+					if (!fillArg(srv, fd, tokens, user, params))
+						return ;
 				int targetFd = srv.getClientFd(user);
 				srv.changeOperator(channelName, targetFd, sign);
 				break ;
@@ -182,8 +191,9 @@ void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 			case 'l':
 			{
 				std::string limit = "";
-				if (!fillArg(srv, fd, tokens, limit, params))
-					return ;
+				if (sign == true)
+					if (!fillArg(srv, fd, tokens, limit, params))
+						return ;
 				srv.changeUserLimit(fd, channelName, limit, sign);
 				break ;
 			}
@@ -253,10 +263,18 @@ bool errorNick(Server &srv, int fd, const std::vector<std::string> tokens)
 	if (!isAuthenticated(srv, fd, tokens[0]) || errorParams(srv, fd, tokens, 2, 2))
 		return (true);
 	std::string nickname = tokens[1];
-	if (nickname.length() > 9)
+	if (nickname.length() > 9 || isNum(nickname[0]))
 	{
 		srv.sendError(fd, "432", nickname, "Erroneous nickname");
 		return (true);
+	}
+	for (int i = 0; nickname[i]; i++)
+	{
+		if (!isValid(nickname[i]))
+		{
+			srv.sendError(fd, "432", nickname, "Erroneous nickname");
+			return (true);
+		}
 	}
 	std::map<int, Client> clientsList = srv.getClientsList();
 	for (std::map<int, Client>::iterator it = clientsList.begin(); it != clientsList.end(); ++it)
@@ -284,7 +302,7 @@ bool errorJoin(Server &srv, int fd, const std::vector<std::string> tokens)
 			return (true);
 		}
 		for (size_t i = 1; i < channel.length(); ++i)
-		{(void)tokens;
+		{
 			if (channel[i] == ' ' || channel[i] == ',' || channel[i] < 0x20)
 			{
 				srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask");
@@ -322,24 +340,28 @@ bool errorPrivMsg(Server &srv, int senderFd, const std::vector<std::string> toke
 {
 	if (!isAuthenticated(srv, senderFd, tokens[0]) || !isRegistered(srv, senderFd, tokens[0]) || errorParams(srv, senderFd, tokens, 3, 3))
 		return (true);
-	std::string target = tokens[1];
-	bool isChannel = false;
-	if (target[0] == '#' || target[0] == '&')
-		isChannel = true;
+	std::vector<std::string> destNames = split(tokens[1], ',');
+	for (size_t i = 0; i < destNames.size(); ++i)
+	{
+		std::string target = destNames[i];
+		bool isChannel = false;
+		if (target[0] == '#' || target[0] == '&')
+			isChannel = true;
+		if (isChannel)
+		{
+			if (srv.isChannelExist(target))
+				return (false);
+			srv.sendError(senderFd, "403", target, "No such channel");
+		}
+		else if (!isChannel)
+		{
+			if (srv.isNicknameExist(target))
+				return (false);
+			srv.sendError(senderFd, "401", target, "No such nick");
+		}
+	}
 	if (tokens[2][0] != ':')
 		srv.sendError(senderFd, "412", "PRIVMSG", "No text to send");
-	else if (isChannel)
-	{
-		if (srv.isChannelExist(target))
-			return (false);
-		srv.sendError(senderFd, "403", target, "No such channel");
-	}
-	else if (!isChannel)
-	{
-		if (srv.isNicknameExist(target))
-			return (false);
-		srv.sendError(senderFd, "401", target, "No such nick");
-	}
 	return (true);
 }
 

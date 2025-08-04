@@ -13,6 +13,19 @@ Client::Client(int fd)
 	_nickSet = false;
 }
 
+Client::~Client()
+{
+	_fd = 0;
+	_hostname = "";
+	_realname = "";
+	_username = "";
+	_nickname = "";
+	_authenticated = false;
+	_registered = false;
+	_userSet = false;
+	_nickSet = false;
+}
+
 void Client::setNickname(const std::string &nickname)
 {
 	_nickname = nickname;

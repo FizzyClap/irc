@@ -27,7 +27,7 @@ void Server::parsing(const std::string &argv1, const std::string &argv2)
 	if (!argv2.empty())
 		_password = argv2;
 	createSocket();
-};
+}
 
 void Server::createSocket()
 {
@@ -47,12 +47,13 @@ void Server::createSocket()
 		throw std::runtime_error("bind() fail");
 	if (listen(serverFd, SOMAXCONN) == -1)
 		throw std::runtime_error("listen error");
-};
+}
 
 void Server::run()
 {
 	PollManager client;
 	client.addClient(_socketFd);
+	std::map<int, std::string> clientsBuffer;
 	while (true)
 	{
 		std::vector<pollfd>& pollFds = client.getPollFds();
@@ -78,29 +79,38 @@ void Server::run()
 					std::cout << "Client " << new_client << " connected." << std::endl;
 					client.addClient(new_client);
 					_clientsMap[new_client] = Client(new_client);
+					clientsBuffer[new_client] = "";
 					continue;
 			}
 			if (pollFds[i].revents & POLLIN)
 			{
-				char buffer[1024];
-				ssize_t j = recv(pollFds[i].fd, buffer, sizeof(buffer), 0);
-				if (j > 0)
+				int clientFd = pollFds[i].fd;
+				char temp[1024];
+				ssize_t bytesRead = recv(clientFd, temp, sizeof(temp) - 1, 0);
+				if (bytesRead <= 0)
 				{
-					buffer[j] = '\0';
-					std::string msg(buffer);
-					parseCommands(*this, pollFds[i].fd, msg);
-				}
-				else
-				{
-					close(pollFds[i].fd);
-					std::cerr << "Client " << pollFds[i].fd << " disconnected." << std::endl;
+					close(clientFd);
+					std::cerr << "Client " << clientFd << " disconnected." << std::endl;
+					removeClient(clientFd);
+					clientsBuffer.erase(clientFd);
 					pollFds.erase(pollFds.begin() + i);
 					--i;
+					continue ;
+				}
+				temp[bytesRead] = '\0';
+				clientsBuffer[clientFd] += temp;
+				size_t pos;
+				while ((pos = clientsBuffer[clientFd].find('\n')) != std::string::npos)
+				{
+					std::string command = clientsBuffer[clientFd].substr(0, pos + 1);
+					parseCommands(*this, clientFd, command);
+					clientsBuffer[clientFd].erase(0, pos + 1);
 				}
 			}
 		}
 	}
-};
+}
+
 
 bool Server::joinChannel(int fd, const std::string &channelName, const std::string &key)
 {
@@ -119,6 +129,8 @@ bool Server::joinChannel(int fd, const std::string &channelName, const std::stri
 	else
 	{
 		chan.addMembers(fd);
+		if (chan.getModeInvite())
+			chan.removeInvited(fd);
 		return (true);
 	}
 	return (false);
@@ -281,7 +293,7 @@ void Server::printTopic(int fd, const std::string &channelName, const std::strin
 			message = ":" + it->second.getNickname() + " TOPIC " + channelName + " :" + topic + "\r\n";
 		else
 			message = ":" + it->second.getNickname() + " TOPIC " + channelName + " :No topic is set\r\n";
-		if (_channelsMap[channelName].isMember(fd))
+		if (_channelsMap[channelName].isMember(it->first))
 			send(it->second.getFd(), message.c_str(), message.length(), 0);
 	}
 }
@@ -328,4 +340,27 @@ int Server::getClientFd(const std::string &name)
 		if (it->second.getNickname() == name)
 			return (it->first);
 	return (-1);
+}
+
+void Server::removeClient(int fd)
+{
+	Client &client = getClient(fd);
+	for (std::map<std::string, Channel>::iterator it = _channelsMap.begin(); it != _channelsMap.end(); ++it)
+	{
+		Channel &channel = it->second;
+		if (channel.isMember(fd))
+			channel.removeMembers(fd);
+		if (channel.isOperator(fd))
+			channel.removeOperator(fd);
+		if (channel.getIsInvited(fd))
+			channel.removeInvited(fd);
+		if (!channel.getNbUser())
+			deleteChannel(channel.getChannelName());
+	}
+	client.~Client();
+}
+
+void Server::deleteChannel(const std::string &channelName)
+{
+	_channelsMap.erase(channelName);
 }

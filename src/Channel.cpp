@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/28 17:06:02 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/31 15:08:19 by roespici         ###   ########.fr       */
+/*   Updated: 2025/07/31 19:03:53 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -55,6 +55,12 @@ void Channel::addInvited(int fd)
 {
 	_invited.insert(fd);
 }
+
+void Channel::removeInvited(int fd)
+{
+	_invited.erase(fd);
+}
+
 
 void Channel::setTopic(const std::string &topic)
 {

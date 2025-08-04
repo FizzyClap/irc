@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 14:22:33 by peli              #+#    #+#             */
-/*   Updated: 2025/07/29 12:32:57 by roespici         ###   ########.fr       */
+/*   Updated: 2025/08/04 15:45:18 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,7 +18,7 @@ int main(int argc, char **argv)
 	try
 	{
 		if (argc != 3)
-			throw std::runtime_error("Error");
+			throw std::runtime_error("Usage: ./ircserv <port> <password>");
 		Server srv;
 		srv.parsing(argv[1], argv[2]);
 		srv.run();
@@ -26,6 +26,7 @@ int main(int argc, char **argv)
 	catch(const std::exception& e)
 	{
 		std::cerr << e.what() << '\n';
+		return (1);
 	}
 	return (0);
 }

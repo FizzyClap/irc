@@ -63,3 +63,31 @@ const std::string cleanMessage(std::string message)
 {
 	return (message.erase(message.find_last_not_of(" \r\n") + 1));
 }
+
+bool isAlpha(int c)
+{
+	if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
+		return (true);
+	return (false);
+}
+
+bool isNum(int c)
+{
+	if (c >= '0' && c <= '9')
+		return (true);
+	return (false);
+}
+
+bool isSpecial(int c)
+{
+	if (c == '[' || c == ']' || c == '\\' || c == '`' || c == '_' || c == '-' || c == '^' || c == '{' || c == '|' || c =='}')
+		return (true);
+	return (false);
+}
+
+bool isValid(int c)
+{
+	if (!isAlpha(c) && !isNum(c) && !isSpecial(c))
+		return (false);
+	return (true);
+}

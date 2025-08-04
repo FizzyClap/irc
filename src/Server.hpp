@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <cstring>
 #include <cstdlib>
+#include <csignal>
 #include <unistd.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -48,6 +49,7 @@ class Server
 		void parsing(const std::string &port, const std::string &password);
 		void createSocket();
 		void run();
+		void stop();
 		bool joinChannel(int fd, const std::string &channelName, const std::string &key);
 		void kickClient(const std::string &kickerName, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment);
 		void inviteClient(int senderFd, int targetFd, const std::string &targetNickname, const std::string &channelName);
@@ -65,6 +67,8 @@ class Server
 		void changeKey(const std::string &channelName, const std::string &key, const bool mode);
 		void changeUserLimit(int fd, const std::string &channelName, std::string &limit, const bool mode);
 		void changeOperator(const std::string &channelName, int fd, const bool mode);
+		void removeClient(int fd);
+		void deleteChannel(const std::string &channelName);
 		std::map<int, Client> &getClientsList() {return (this->_clientsMap);};
 		std::map<std::string, Channel> &getChannelList() {return (this->_channelsMap);};
 		Channel &getChannel(const std::string &channelName) {return (this->_channelsMap[channelName]);};

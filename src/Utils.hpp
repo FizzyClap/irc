@@ -7,3 +7,7 @@ std::string eraseColon(std::vector<std::string> tokens, size_t size);
 int atoi(const std::string &str);
 const std::string cleanMessage(std::string message);
 std::vector<std::string> split(const std::string &msg, char separator);
+bool isAlpha(int c);
+bool isNum(int c);
+bool isSpecial(int c);
+bool isValid(int c);
