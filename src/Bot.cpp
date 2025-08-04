@@ -38,14 +38,15 @@ void Bot::sendRawMessage(const std::string &msg)
 
 void Bot::listen()
 {
-	char buffer[512];
+	char buffer[1024];
 	bool list = false;
 	while (true)
 	{
 		memset(buffer, 0, sizeof(buffer));
-		int bytes = recv(_sockFd, buffer, sizeof(buffer) - 1, 0);
-		if (bytes <= 0)
+		int bytesRead = recv(_sockFd, buffer, sizeof(buffer) - 1, 0);
+		if (bytesRead <= 0)
 			break ;
+		buffer[bytesRead] = '\0';
 		std::string msg = cleanMessage(buffer);
 		if (!msg.empty())
 			std::cout << msg << std::endl;

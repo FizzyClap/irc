@@ -57,7 +57,7 @@ class Server
 		void printTopic(int fd, const std::string &channelName, const std::string &topic);
 		void broadcast(int senderFd, const std::string &message, bool toOthers);
 		void broadcastForJoin(int fd, const std::string &channel, const std::string &key);
-		void sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg);
+		bool sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg);
 		void sendPrivMsg(int senderFd, int receiverFd, const std::string &target, const std::string &message, bool isChannel);
 		void getModes(int fd, const std::string &channelName);
 		bool isChannelExist(const std::string &channelName);
@@ -66,7 +66,7 @@ class Server
 		void changeTopicRestriction(const std::string &channelName, const bool mode);
 		void changeKey(const std::string &channelName, const std::string &key, const bool mode);
 		void changeUserLimit(int fd, const std::string &channelName, std::string &limit, const bool mode);
-		void changeOperator(const std::string &channelName, int fd, const bool mode);
+		void changeOperator(int executorFd, const std::string &executorName, const std::string &channelName, int fd, const bool mode);
 		void removeClient(int fd);
 		void deleteChannel(const std::string &channelName);
 		std::map<int, Client> &getClientsList() {return (this->_clientsMap);};

@@ -111,13 +111,23 @@ void cmdPrivMsg(Server &srv, int senderFd, const std::vector<std::string> &token
 	if (errorPrivMsg(srv, senderFd, tokens))
 		return ;
 	std::vector<std::string> destNames = split(tokens[1], ',');
+	std::string message = eraseColon(tokens, tokens.size());
 	for (size_t i = 0; i < destNames.size(); ++i)
 	{
 		std::string target = destNames[i];
 		bool isChannel = false;
 		if (target[0] == '#' || target[0] == '&')
 			isChannel = true;
-		std::string message = eraseColon(tokens, tokens.size());
+		if (isChannel && !srv.isChannelExist(target))
+		{
+			srv.sendError(senderFd, "403", target, "No such channel");
+			continue ;
+		}
+		else if (!isChannel && !srv.isNicknameExist(target))
+		{
+			srv.sendError(senderFd, "401", target, "No such nick");
+			continue ;
+		}
 		int targetFd = srv.getClientFd(target);
 		std::string toSend = ":" + srv.getClient(senderFd).getNickname() + " PRIVMSG " + target + " :" + message + "\r\n";
 		srv.sendPrivMsg(senderFd, targetFd, target, toSend, isChannel);
@@ -184,8 +194,13 @@ void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 				if (sign == true)
 					if (!fillArg(srv, fd, tokens, user, params))
 						return ;
+				if (!srv.isNicknameExist(user))
+				{
+					srv.sendError(fd, "401", user, "No such nick");
+					break ;
+				}
 				int targetFd = srv.getClientFd(user);
-				srv.changeOperator(channelName, targetFd, sign);
+				srv.changeOperator(fd, srv.getClient(fd).getNickname(),channelName, targetFd, sign);
 				break ;
 			}
 			case 'l':
@@ -238,24 +253,19 @@ bool errorPass(Server &srv, int fd, const std::vector<std::string> tokens)
 	if (errorParams(srv, fd, tokens, 2, 2) || isAuthenticated(srv, fd, tokens[0]))
 		return (true);
 	if (tokens[1].empty() || tokens[1].length() > 50)
-	{
-		srv.sendError(fd, "461", tokens[0], "Invalid password syntax");
-		return (true);
-	}
+		return (srv.sendError(fd, "461", tokens[0], "Invalid password syntax"));
 	return (false);
 }
 
 bool errorUser(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (tokens.size() == 5 && tokens[4][0] != ':')
-		srv.sendError(fd, "461", tokens[0], "Invalid parameter");
+		return (srv.sendError(fd, "461", tokens[0], "Invalid parameter"));
 	else if (tokens[1].length() > 10)
-		srv.sendError(fd, "468", tokens[1], "Erroneous username");
+		return (srv.sendError(fd, "468", tokens[1], "Erroneous username"));
 	else if (tokens.size() == 5 && tokens[4]. length() > 100)
-		srv.sendError(fd, "468", tokens[4], "Erroneous realname");
-	else
-		return (false);
-	return (true);
+		return (srv.sendError(fd, "468", tokens[4], "Erroneous realname"));
+	return (false);
 }
 
 bool errorNick(Server &srv, int fd, const std::vector<std::string> tokens)
@@ -264,27 +274,14 @@ bool errorNick(Server &srv, int fd, const std::vector<std::string> tokens)
 		return (true);
 	std::string nickname = tokens[1];
 	if (nickname.length() > 9 || isNum(nickname[0]))
-	{
-		srv.sendError(fd, "432", nickname, "Erroneous nickname");
-		return (true);
-	}
+		return (srv.sendError(fd, "432", nickname, "Erroneous nickname"));
 	for (int i = 0; nickname[i]; i++)
-	{
 		if (!isValid(nickname[i]))
-		{
-			srv.sendError(fd, "432", nickname, "Erroneous nickname");
-			return (true);
-		}
-	}
+			return (srv.sendError(fd, "432", nickname, "Erroneous nickname"));
 	std::map<int, Client> clientsList = srv.getClientsList();
 	for (std::map<int, Client>::iterator it = clientsList.begin(); it != clientsList.end(); ++it)
-	{
 		if (nickname == it->second.getNickname())
-		{
-			srv.sendError(fd, "433", nickname, "Nickname is already in use");
-			return (true);
-		}
-	}
+			return (srv.sendError(fd, "433", nickname, "Nickname is already in use"));
 	return (false);
 }
 
@@ -297,18 +294,10 @@ bool errorJoin(Server &srv, int fd, const std::vector<std::string> tokens)
 	{
 		const std::string &channel = *it;
 		if (channel.empty() || (channel[0] != '#' && channel[0] != '&') || channel.length() > 50)
-		{
-			srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask");
-			return (true);
-		}
+			return (srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask"));
 		for (size_t i = 1; i < channel.length(); ++i)
-		{
 			if (channel[i] == ' ' || channel[i] == ',' || channel[i] < 0x20)
-			{
-				srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask");
-				return (true);
-			}
-		}
+				return (srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask"));
 	}
 	return (false);
 }
@@ -322,47 +311,25 @@ bool errorKick(Server &srv, int kickerFd, const std::vector<std::string> tokens)
 	int targetFd = srv.getClientFd(targetName);
 	Channel &chan = srv.getChannel(channelName);
 	if (tokens.size() == 4 && tokens[3][0] != ':')
-		srv.sendError(kickerFd, "461", tokens[0], "Invalid parameter");
+		return (srv.sendError(kickerFd, "461", tokens[0], "Invalid parameter"));
 	else if (!srv.isChannelExist(channelName))
-		srv.sendError(kickerFd, "403", channelName, "No such channel");
+		return (srv.sendError(kickerFd, "403", channelName, "No such channel"));
 	else if (!chan.isMember(kickerFd))
-		srv.sendError(kickerFd, "442", channelName, "You're not on that channel");
+		return (srv.sendError(kickerFd, "442", channelName, "You're not on that channel"));
 	else if (!chan.isOperator(kickerFd))
-		srv.sendError(kickerFd, "482", srv.getClient(kickerFd).getNickname() + " " + channelName, "You're not channel operator");
+		return (srv.sendError(kickerFd, "482", srv.getClient(kickerFd).getNickname() + " " + channelName, "You're not channel operator"));
 	else if (!chan.isMember(targetFd))
-		srv.sendError(kickerFd, "441", targetName + " " + channelName, "They aren't on that channel");
-	else
-		return (false);
-	return (true);
+		return (srv.sendError(kickerFd, "441", targetName + " " + channelName, "They aren't on that channel"));
+	return (false);
 }
 
 bool errorPrivMsg(Server &srv, int senderFd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, senderFd, tokens[0]) || !isRegistered(srv, senderFd, tokens[0]) || errorParams(srv, senderFd, tokens, 3, 3))
 		return (true);
-	std::vector<std::string> destNames = split(tokens[1], ',');
-	for (size_t i = 0; i < destNames.size(); ++i)
-	{
-		std::string target = destNames[i];
-		bool isChannel = false;
-		if (target[0] == '#' || target[0] == '&')
-			isChannel = true;
-		if (isChannel)
-		{
-			if (srv.isChannelExist(target))
-				return (false);
-			srv.sendError(senderFd, "403", target, "No such channel");
-		}
-		else if (!isChannel)
-		{
-			if (srv.isNicknameExist(target))
-				return (false);
-			srv.sendError(senderFd, "401", target, "No such nick");
-		}
-	}
 	if (tokens[2][0] != ':')
-		srv.sendError(senderFd, "412", "PRIVMSG", "No text to send");
-	return (true);
+		return (srv.sendError(senderFd, "412", "PRIVMSG", "No text to send"));
+	return (false);
 }
 
 bool errorInvite(Server &srv, int senderFd, const std::vector<std::string> tokens)
@@ -372,16 +339,14 @@ bool errorInvite(Server &srv, int senderFd, const std::vector<std::string> token
 	std::string targetNickname = tokens[1];
 	std::string channelName = tokens[2];
 	if (!srv.isNicknameExist(targetNickname))
-		srv.sendError(senderFd, "401", targetNickname, "No such nick");
+		return (srv.sendError(senderFd, "401", targetNickname, "No such nick"));
 	else if (!srv.isChannelExist(channelName))
-		srv.sendError(senderFd, "403", channelName, "No such channel");
+		return (srv.sendError(senderFd, "403", channelName, "No such channel"));
 	else if (!srv.getChannel(channelName).isMember(senderFd))
-		srv.sendError(senderFd, "442", channelName, "You're not on that channel");
+		return (srv.sendError(senderFd, "442", channelName, "You're not on that channel"));
 	else if (srv.getChannel(channelName).isMember(srv.getClientFd(targetNickname)))
-		srv.sendError(senderFd, "443", targetNickname, "is already on channel");
-	else
-		return (false);
-	return (true);
+		return (srv.sendError(senderFd, "443", targetNickname, "is already on channel"));
+	return (false);
 }
 
 bool errorTopic(Server &srv, int fd, const std::vector<std::string> tokens)
@@ -390,14 +355,12 @@ bool errorTopic(Server &srv, int fd, const std::vector<std::string> tokens)
 		return (true);
 	std::string channelName = tokens[1];
 	if (tokens.size() == 3 && tokens[2][0] != ':')
-		srv.sendError(fd, "461", tokens[0], "Invalid parameter");
+		return (srv.sendError(fd, "461", tokens[0], "Invalid parameter"));
 	else if (!srv.isChannelExist(channelName))
-		srv.sendError(fd, "403", channelName, "No such channel");
+		return (srv.sendError(fd, "403", channelName, "No such channel"));
 	else if (!srv.getChannel(channelName).isMember(fd))
-		srv.sendError(fd, "442", channelName, "You're not on that channel");
-	else
-		return (false);
-	return (true);
+		return (srv.sendError(fd, "442", channelName, "You're not on that channel"));
+	return (false);
 }
 
 bool errorMode(Server &srv, int fd, const std::vector<std::string> tokens)
@@ -405,41 +368,33 @@ bool errorMode(Server &srv, int fd, const std::vector<std::string> tokens)
 	if (!isAuthenticated(srv, fd, tokens[0]) || !isRegistered(srv, fd, tokens[0]))
 		return (true);
 	if (tokens.size() < 2)
-	{
-		srv.sendError(fd, "461", tokens[0], "Not enough parameters");
-		return (true);
-	}
+		return (srv.sendError(fd, "461", tokens[0], "Not enough parameters"));
+	std::string channelName = tokens[1];
+	if (!srv.isChannelExist(channelName))
+		return (srv.sendError(fd, "403", channelName, "No such channel"));
 	if (tokens.size() == 2)
 		return (false);
-	std::string channelName = tokens[1];
 	if (!srv.getChannel(channelName).isOperator(fd))
-		srv.sendError(fd, "482", srv.getClient(fd).getNickname() + " " + channelName, "You're not channel operator");
+		return (srv.sendError(fd, "482", srv.getClient(fd).getNickname() + " " + channelName, "You're not channel operator"));
 	else if (tokens[2][0] != '+' && tokens[2][0] != '-')
-		srv.sendError(fd, "461", tokens[0], "Invalid parameter");
-	else
-		return (false);
-	return (true);
+		return (srv.sendError(fd, "461", tokens[0], "Invalid parameter"));
+	return (false);
 }
 
 bool errorParams(Server &srv, int fd, std::vector<std::string> tokens, size_t min_params, size_t max_param)
 {
 	if (tokens.size() < min_params)
-		srv.sendError(fd, "461", tokens[0], "Not enough parameters");
+		return (srv.sendError(fd, "461", tokens[0], "Not enough parameters"));
 	else if (tokens.size() > max_param)
-		srv.sendError(fd, "461", tokens[0], "Too many parameters");
-	else
-		return (false);
-	return (true);
+		return (srv.sendError(fd, "461", tokens[0], "Too many parameters"));
+	return (false);
 }
 
 bool isRegistered(Server &srv, int fd, std::string cmd)
 {
 	Client client = srv.getClient(fd);
 	if (client.isUserSet() && cmd == "USER")
-	{
-		srv.sendError(fd, "462", cmd, "You may not reregister");
-		return (true);
-	}
+		return (srv.sendError(fd, "462", cmd, "You may not reregister"));
 	else if (!client.isUserSet() && cmd == "USER")
 		return (false);
 	else if ((!client.isUserSet() || !client.isNickSet()) && cmd != "USER" && cmd != "NICK")
@@ -454,10 +409,7 @@ bool isAuthenticated(Server &srv, int fd, std::string cmd)
 {
 	bool authenticated = srv.getClient(fd).isAuthenticated();
 	if (authenticated && cmd == "PASS")
-	{
-		srv.sendError(fd, "462", cmd, "You may not reregister");
-		return (true);
-	}
+		return (srv.sendError(fd, "462", cmd, "You may not reregister"));
 	else if (!authenticated && cmd != "PASS")
 	{
 		srv.sendError(fd, "461", cmd, "You are not registered");

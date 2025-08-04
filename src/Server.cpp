@@ -209,11 +209,12 @@ void Server::kickClient(const std::string &kickerName, int fd, const std::string
 	}
 }
 
-void Server::sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg)
+bool Server::sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg)
 {
 	std::ostringstream oss;
 	oss << ":ircserv " << code << " * " << arg << " :" << msg << "\r\n";
 	send(fd, oss.str().c_str(), oss.str().size(), 0);
+	return (true);
 }
 
 void Server::sendPrivMsg(int senderFd, int receiverFd, const std::string &channelName, const std::string &message, bool isChannel)
@@ -319,18 +320,24 @@ void Server::changeUserLimit(int fd, const std::string &channelName, std::string
 		sendError(fd, "696", getClient(fd).getNickname() + " " + channelName + " l", "Invalid limit");
 }
 
-void Server::changeOperator(const std::string &channelName, int fd, const bool mode)
+void Server::changeOperator(int executorFd, const std::string &executorName, const std::string &channelName, int fd, const bool mode)
 {
+	Channel &channel = _channelsMap[channelName];
+	if (!channel.isMember(fd))
+	{
+		sendError(executorFd, "441", executorName + " " + getClient(fd).getNickname() + " " + channelName, "is not on channel");
+		return ;
+	}
 	if (mode == true)
-		_channelsMap[channelName].addOperator(fd);
+		channel.addOperator(fd);
 	else
 	{
-		if (_channelsMap[channelName].getOperators().size() == 1)
+		if (channel.getOperators().size() == 1)
 		{
 			sendError(fd, "482", channelName, "Cannot remove operator");
 			return ;
 		}
-		_channelsMap[channelName].removeOperator(fd);
+		channel.removeOperator(fd);
 	}
 }
 
