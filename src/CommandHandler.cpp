@@ -191,9 +191,8 @@ void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 			case 'o':
 			{
 				std::string user = "";
-				if (sign == true)
-					if (!fillArg(srv, fd, tokens, user, params))
-						return ;
+				if (!fillArg(srv, fd, tokens, user, params))
+					return ;
 				if (!srv.isNicknameExist(user))
 				{
 					srv.sendError(fd, "401", user, "No such nick");
