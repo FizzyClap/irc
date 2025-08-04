@@ -49,7 +49,6 @@ class Server
 		void parsing(const std::string &port, const std::string &password);
 		void createSocket();
 		void run();
-		void stop();
 		bool joinChannel(int fd, const std::string &channelName, const std::string &key);
 		void kickClient(const std::string &kickerName, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment);
 		void inviteClient(int senderFd, int targetFd, const std::string &targetNickname, const std::string &channelName);
