@@ -67,7 +67,7 @@ class Server
 		void changeTopicRestriction(const std::string &channelName, const bool mode);
 		void changeKey(const std::string &channelName, const std::string &key, const bool mode);
 		void changeUserLimit(int fd, const std::string &channelName, std::string &limit, const bool mode);
-		void changeOperator(int executorFd, const std::string &executorName, const std::string &channelName, int fd, const bool mode);
+		void changeOperator(int executorFd, const std::string &channelName, const std::string &targetName, const bool mode);
 		void removeClient(int fd);
 		void deleteChannel(const std::string &channelName);
 		std::map<int, Client> &getClientsList() {return (this->_clientsMap);};

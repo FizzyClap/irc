@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/28 17:04:28 by roespici          #+#    #+#             */
-/*   Updated: 2025/07/31 19:03:38 by roespici         ###   ########.fr       */
+/*   Updated: 2025/08/06 16:22:27 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,6 +24,7 @@
 #include <poll.h>
 #include <sys/socket.h>
 #include <set>
+#include <list>
 #include <sstream>
 #include "Utils.hpp"
 
@@ -32,6 +33,7 @@ class Channel
 	private:
 		std::string	_name;
 		std::string	_topic;
+		std::list<int> _membersInOrder;
 		std::set<int> _members;
 		std::set<int> _operators;
 		std::set<int> _invited;
@@ -56,8 +58,10 @@ class Channel
 		size_t getNbUser() const {return (_members.size());};
 		const std::string getChannelName() const {return (_name);};
 		std::set<int> getOperators() const {return (_operators);};
+		std::list<int> getMembersOrder() const {return (_membersInOrder);};
 		bool getIsInvited(int fd) const;
 		void addOperator(int fd);
+		void addOperatorBySeniority();
 		void removeOperator(int fd);
 		bool isOperator(int fd) const {return (_operators.find(fd) != _operators.end());};
 		void addMembers(int fd);

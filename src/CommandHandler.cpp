@@ -43,15 +43,15 @@ void cmdPass(Server &srv, int fd, const std::vector<std::string> &tokens)
 
 void cmdUser(Server &srv, int fd, const std::vector<std::string> &tokens)
 {
-	if (!isAuthenticated(srv, fd, tokens[0]) || isRegistered(srv, fd, tokens[0]) || errorParams(srv, fd, tokens, 4, 5) || errorUser(srv, fd, tokens))
+	if (!isAuthenticated(srv, fd, tokens[0]) || isRegistered(srv, fd, tokens[0]) || errorParams(srv, fd, tokens, 5, 5) || errorUser(srv, fd, tokens))
 		return ;
 	Client &client = srv.getClient(fd);
 	client.setUsername(tokens[1]);
-	client.setHostname(tokens[2]);
-	client.setServername(tokens[3]);
+	client.setHostname("localhost");
+	client.setServername("ircserv");
 	std::string realname = eraseColon(tokens, 5);
-	if (!realname.empty())
-		client.setRealname(tokens[4]);
+	if (realname.empty())
+	client.setRealname(tokens[4]);
 	welcomeMessage(srv, fd);
 }
 
@@ -96,11 +96,6 @@ void cmdKick(Server &srv, int kickerFd, const std::vector<std::string> &tokens)
 	std::string channelName = tokens[1];
 	std::string targetName = tokens[2];
 	int targetFd = srv.getClientFd(targetName);
-	if (targetFd == kickerFd)
-	{
-		srv.sendError(kickerFd, "482", targetName + " " + channelName, "Cannot kick yourself");
-		return ;
-	}
 	std::string comment = eraseColon(tokens, 4);
 	std::string kickerName = srv.getClient(kickerFd).getNickname();
 	srv.kickClient(kickerName, targetFd, channelName, targetName, comment);
@@ -193,13 +188,7 @@ void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)
 				std::string user = "";
 				if (!fillArg(srv, fd, tokens, user, params))
 					return ;
-				if (!srv.isNicknameExist(user))
-				{
-					srv.sendError(fd, "401", user, "No such nick");
-					break ;
-				}
-				int targetFd = srv.getClientFd(user);
-				srv.changeOperator(fd, srv.getClient(fd).getNickname(),channelName, targetFd, sign);
+				srv.changeOperator(fd, channelName, user, sign);
 				break ;
 			}
 			case 'l':
@@ -258,11 +247,13 @@ bool errorPass(Server &srv, int fd, const std::vector<std::string> tokens)
 
 bool errorUser(Server &srv, int fd, const std::vector<std::string> tokens)
 {
-	if (tokens.size() == 5 && tokens[4][0] != ':')
+	if (tokens[4][0] != ':')
 		return (srv.sendError(fd, "461", tokens[0], "Invalid parameter"));
 	else if (tokens[1].length() > 10)
 		return (srv.sendError(fd, "468", tokens[1], "Erroneous username"));
-	else if (tokens.size() == 5 && tokens[4]. length() > 100)
+	else if (tokens[4].length() == 1)
+		return (srv.sendError(fd, "461", tokens[0], "Not enough parameters"));
+	else if (tokens[4]. length() > 100)
 		return (srv.sendError(fd, "468", tokens[4], "Erroneous realname"));
 	return (false);
 }
@@ -316,7 +307,7 @@ bool errorKick(Server &srv, int kickerFd, const std::vector<std::string> tokens)
 	else if (!chan.isMember(kickerFd))
 		return (srv.sendError(kickerFd, "442", channelName, "You're not on that channel"));
 	else if (!chan.isOperator(kickerFd))
-		return (srv.sendError(kickerFd, "482", srv.getClient(kickerFd).getNickname() + " " + channelName, "You're not channel operator"));
+		return (srv.sendError(kickerFd, "482", channelName, "You're not channel operator"));
 	else if (!chan.isMember(targetFd))
 		return (srv.sendError(kickerFd, "441", targetName + " " + channelName, "They aren't on that channel"));
 	return (false);
@@ -374,7 +365,7 @@ bool errorMode(Server &srv, int fd, const std::vector<std::string> tokens)
 	if (tokens.size() == 2)
 		return (false);
 	if (!srv.getChannel(channelName).isOperator(fd))
-		return (srv.sendError(fd, "482", srv.getClient(fd).getNickname() + " " + channelName, "You're not channel operator"));
+		return (srv.sendError(fd, "482", channelName, "You're not channel operator"));
 	else if (tokens[2][0] != '+' && tokens[2][0] != '-')
 		return (srv.sendError(fd, "461", tokens[0], "Invalid parameter"));
 	return (false);

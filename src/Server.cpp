@@ -130,11 +130,11 @@ bool Server::joinChannel(int fd, const std::string &channelName, const std::stri
 	}
 	Channel &chan = _channelsMap[channelName];
 	if (chan.getModeInvite() && !chan.getIsInvited(fd))
-		sendError(fd, "473", getClient(fd).getNickname() + " " + channelName, "Cannot join channel (+i)");
+		sendError(fd, "473", channelName, "Cannot join channel (+i)");
 	else if (chan.getModeKey() && chan.getKeyPass() != key)
-		sendError(fd, "475", getClient(fd).getNickname() + " " + channelName, "Cannot join channel (+k)");
+		sendError(fd, "475", channelName, "Cannot join channel (+k)");
 	else if (chan.getModeLimit() && chan.getLimitUser() == chan.getNbUser())
-		sendError(fd, "471", getClient(fd).getNickname() + " " + channelName, "Cannot join channel (+l)");
+		sendError(fd, "471", channelName, "Cannot join channel (+l)");
 	else
 	{
 		chan.addMembers(fd);
@@ -180,12 +180,19 @@ void Server::broadcastForJoin(int fd, const std::string &channel, const std::str
 	std::string	joinMsg = ":" + nickname + " JOIN :" + channel + "\r\n";
 	if (!key.empty())
 		joinMsg = ":" + nickname + " JOIN :" + channel + " using key '" + key + "'\r\n";
-	std::string aboutTopic = ":ircserv 332 " + nickname + " " + channel + " :" + getChannel(channel).getTopic() + "\r\n";
+	std::string topic = getChannel(channel).getTopic();
+	if (topic.empty())
+		topic = "No topic is set";
+	std::string aboutTopic = ":ircserv 332 " + nickname + " " + channel + " :" + topic + "\r\n";
 	std::map<int, Client> clients = getClientsList();
 	std::string clientsInChan;
 	for (std::map<int, Client>::iterator it = clients.begin(); it != clients.end(); ++it)
-		if (getChannel(channel).isMember(it->first))
+	{
+		if (getChannel(channel).isMember(it->first) && getChannel(channel).isOperator(it->first))
+			clientsInChan += "@" + it->second.getNickname() + " ";
+		else if (getChannel(channel).isMember(it->first))
 			clientsInChan += it->second.getNickname() + " ";
+	}
 	std::string alreadyIn = ":ircserv 353 " + nickname + " = " + channel + " :" + clientsInChan  + "\r\n";
 	std::string endBroadcast = ":ircserv 366 " + nickname + " " + channel + " :End of /NAMES list\r\n";
 	broadcast(fd, joinMsg, true);
@@ -202,6 +209,12 @@ void Server::kickClient(const std::string &kickerName, int fd, const std::string
 	{
 		Channel &channel = it->second;
 		channel.removeMembers(fd);
+		if (channel.isOperator(fd))
+			channel.removeOperator(fd);
+		if (channel.getNbUser() == 0)
+			deleteChannel(channelName);
+		else if (channel.getOperators().size() == 0)
+			channel.addOperatorBySeniority();
 		std::string kickMsg;
 		if (comment.empty())
 			kickMsg = ":" + kickerName + " KICK " + channelName + " " + nickname + "\r\n";
@@ -212,7 +225,7 @@ void Server::kickClient(const std::string &kickerName, int fd, const std::string
 			if (!clientIt->second.isRegistered())
 				continue ;
 			int clientFd = clientIt->first;
-			if (channel.isMember(clientFd) || clientFd == fd)
+			if ((isChannelExist(channelName) && channel.isMember(clientFd)) || clientFd == fd)
 				send(clientFd, kickMsg.c_str(), kickMsg.length(), 0);
 		}
 	}
@@ -221,7 +234,10 @@ void Server::kickClient(const std::string &kickerName, int fd, const std::string
 bool Server::sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg)
 {
 	std::ostringstream oss;
-	oss << ":ircserv " << code << " * " << arg << " :" << msg << "\r\n";
+	std::string nickname = getClient(fd).getNickname();
+	if (nickname.empty())
+		nickname = "*";
+	oss << ":ircserv " << code << " " + nickname + " " << arg << " :" << msg << "\r\n";
 	send(fd, oss.str().c_str(), oss.str().size(), 0);
 	return (true);
 }
@@ -326,27 +342,30 @@ void Server::changeKey(const std::string &channelName, const std::string &key, c
 void Server::changeUserLimit(int fd, const std::string &channelName, std::string &limit, const bool mode)
 {
 	if (!_channelsMap[channelName].setLimitMode(mode, limit))
-		sendError(fd, "696", getClient(fd).getNickname() + " " + channelName + " l", "Invalid limit");
+		sendError(fd, "696", channelName + " l", "Invalid limit");
 }
 
-void Server::changeOperator(int executorFd, const std::string &executorName, const std::string &channelName, int fd, const bool mode)
+void Server::changeOperator(int executorFd, const std::string &channelName, const std::string &targetName, const bool mode)
 {
+	if (!isNicknameExist(targetName))
+	{
+		sendError(executorFd, "401", targetName, "No such nick");
+		return ;
+	}
+	int fd = getClientFd(targetName);
 	Channel &channel = _channelsMap[channelName];
 	if (!channel.isMember(fd))
 	{
-		sendError(executorFd, "441", executorName + " " + getClient(fd).getNickname() + " " + channelName, "is not on channel");
+		sendError(executorFd, "441", getClient(fd).getNickname() + " " + channelName, "is not on channel");
 		return ;
 	}
 	if (mode == true)
 		channel.addOperator(fd);
 	else
 	{
-		if (channel.getOperators().size() == 1)
-		{
-			sendError(fd, "482", channelName, "Cannot remove operator");
-			return ;
-		}
 		channel.removeOperator(fd);
+		if (channel.getOperators().size() == 0)
+			channel.addOperatorBySeniority();
 	}
 }
 
