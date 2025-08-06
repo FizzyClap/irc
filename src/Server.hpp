@@ -55,7 +55,7 @@ class Server
 		void kickClient(const std::string &kickerName, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment);
 		void inviteClient(int senderFd, int targetFd, const std::string &targetNickname, const std::string &channelName);
 		bool setTopic(int fd, const std::string &topic, const std::string &channelName);
-		void printTopic(int fd, const std::string &channelName, const std::string &topic);
+		void printTopic(int fd, const std::string &channelName, const std::string &topic, bool serverMsg);
 		void broadcast(int senderFd, const std::string &message, bool toOthers);
 		void broadcastForJoin(int fd, const std::string &channel, const std::string &key);
 		bool sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg);

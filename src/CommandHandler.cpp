@@ -144,8 +144,11 @@ void cmdTopic(Server &srv, int fd, const std::vector<std::string> &tokens)
 	if (errorTopic(srv, fd, tokens))
 		return ;
 	std::string channelName = tokens[1];
+	bool serverMsg = true;
+	if (tokens.size() == 3)
+		serverMsg = false;
 	std::string topic = eraseColon(tokens, 3);
-	srv.printTopic(fd, channelName, topic);
+	srv.printTopic(fd, channelName, topic, serverMsg);
 }
 
 void cmdMode(Server &srv, int fd, const std::vector<std::string> &tokens)

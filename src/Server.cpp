@@ -306,20 +306,27 @@ bool Server::setTopic(int fd, const std::string &topic, const std::string &chann
 	return (true);
 }
 
-void Server::printTopic(int fd, const std::string &channelName, const std::string &newTopic)
+void Server::printTopic(int fd, const std::string &channelName, const std::string &newTopic, bool ServerMsg)
 {
 	if (!newTopic.empty())
 		if (!setTopic(fd, newTopic, channelName))
 			return ;
+	std::string nickname = getClient(fd).getNickname();
 	std::string topic = _channelsMap[channelName].getTopic();
+	std::string prefix = ":ircserv 332 ";
+	if (topic.empty())
+	{
+		if (ServerMsg)
+			prefix = ":ircserv 331 ";
+		topic = "No topic is set";
+	}
 	for (std::map<int, Client>::iterator it = _clientsMap.begin(); it != _clientsMap.end(); ++it)
 	{
-		std::string message = "";
-		if (!topic.empty())
-			message = ":" + it->second.getNickname() + " TOPIC " + channelName + " :" + topic + "\r\n";
-		else
-			message = ":" + it->second.getNickname() + " TOPIC " + channelName + " :No topic is set\r\n";
-		if (_channelsMap[channelName].isMember(it->first))
+		std::string message = ":";
+		if (ServerMsg)
+			message = prefix;
+		message += nickname + " TOPIC " + channelName + " :" + topic + "\r\n";
+		if ((_channelsMap[channelName].isMember(it->first) && !ServerMsg) || (ServerMsg && fd == it->first))
 			send(it->second.getFd(), message.c_str(), message.length(), 0);
 	}
 }
