@@ -62,3 +62,9 @@ void Client::setRegistered(bool regis)
 {
 	_registered = regis;
 }
+
+const std::string Client::getPrefix()
+{
+	std::string prefix = ":" + getNickname() + "!~" + getUsername() + "@" + getHostname() + " ";
+	return (prefix);
+}

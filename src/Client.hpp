@@ -41,5 +41,7 @@ class Client
 		void setServername(const std::string &servername);
 		void setRealname(const std::string &realname);
 		void setAuthenticated(bool auth);
-		void setRegistered(bool regis);
+		void setRegistered(bool regis);\
+		const std::string getPrefix();
+
 };

@@ -54,10 +54,12 @@ void Server::run()
 	PollManager client;
 	client.addClient(_socketFd);
 	std::map<int, std::string> clientsBuffer;
-	while (true)
+	while (!_signal)
 	{
 		std::vector<pollfd>& pollFds = client.getPollFds();
 		int activity = poll(pollFds.data(), pollFds.size(), 100);
+		if (_signal)
+			return ;
 		if (activity < 0)
 		{
 			std::cerr << "poll fail: " << strerror(errno) << std::endl;
@@ -177,9 +179,9 @@ void Server::broadcastForJoin(int fd, const std::string &channel, const std::str
 {
 	Client client = getClient(fd);
 	std::string nickname = client.getNickname();
-	std::string	joinMsg = ":" + nickname + " JOIN :" + channel + "\r\n";
+	std::string	joinMsg = client.getPrefix() + "JOIN :" + channel + "\r\n";
 	if (!key.empty())
-		joinMsg = ":" + nickname + " JOIN :" + channel + " using key '" + key + "'\r\n";
+		joinMsg = client.getPrefix() + "JOIN :" + channel + " using key '" + key + "'\r\n";
 	std::string topic = getChannel(channel).getTopic();
 	if (topic.empty())
 		topic = "No topic is set";
@@ -202,8 +204,31 @@ void Server::broadcastForJoin(int fd, const std::string &channel, const std::str
 	broadcast(fd, endBroadcast, false);
 }
 
-void Server::kickClient(const std::string &kickerName, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment)
+void Server::quitChannels(int fd)
 {
+	Client &client = getClient(fd);
+	for (std::map<std::string, Channel>::iterator it = _channelsMap.begin(); it != _channelsMap.end(); ++it)
+	{
+		Channel &channel = it->second;
+		std::string channelName = it->first;
+		if (channel.isMember(fd))
+		{
+			channel.removeMembers(fd);
+			if (channel.isOperator(fd))
+				channel.removeOperator(fd);
+			if (channel.getOperators().size() == 0)
+				channel.addOperatorBySeniority();
+			if (channel.getNbUser() == 0)
+				deleteChannel(it->first);
+			std::string message = client.getPrefix() + "PART " + channelName + "\r\n";
+			broadcast(fd, message, true);
+		}
+	}
+}
+
+void Server::kickClient(int kickerFd, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment)
+{
+	Client &client = getClient(kickerFd);
 	std::map<std::string, Channel>::iterator it = _channelsMap.find(channelName);
 	if (it != _channelsMap.end())
 	{
@@ -217,9 +242,9 @@ void Server::kickClient(const std::string &kickerName, int fd, const std::string
 			channel.addOperatorBySeniority();
 		std::string kickMsg;
 		if (comment.empty())
-			kickMsg = ":" + kickerName + " KICK " + channelName + " " + nickname + "\r\n";
+			kickMsg = client.getPrefix() + "KICK " + channelName + " " + nickname + "\r\n";
 		else
-			kickMsg = ":" + kickerName + " KICK " + channelName + " " + nickname + " :" + comment + "\r\n";
+			kickMsg = client.getPrefix() + "KICK " + channelName + " " + nickname + " :" + comment + "\r\n";
 		for (std::map<int, Client>::iterator clientIt = _clientsMap.begin(); clientIt != _clientsMap.end(); ++clientIt)
 		{
 			if (!clientIt->second.isRegistered())
@@ -269,6 +294,7 @@ void Server::getModes(int fd, const std::string &channelName)
 	broadcast(fd, fullMsg, false);
 	return ;
 }
+
 bool Server::isChannelExist(const std::string &channelName)
 {
 	std::map<std::string, Channel> channelsList = getChannelList();
@@ -289,8 +315,8 @@ bool Server::isNicknameExist(const std::string &nickname)
 
 void Server::inviteClient(int senderFd, int targetFd, const std::string &targetNickname, const std::string &channelName)
 {
-	std::string senderNickname = getClient(senderFd).getNickname();
-	std::string toSend = ":" + senderNickname + " INVITE " + targetNickname + " :" + channelName + "\r\n";
+	Client &client = getClient(senderFd);
+	std::string toSend = client.getPrefix() + "INVITE " + targetNickname + " :" + channelName + "\r\n";
 	send(targetFd, toSend.c_str(), toSend.length(), 0);
 	_channelsMap[channelName].addInvited(targetFd);
 }
@@ -308,24 +334,24 @@ bool Server::setTopic(int fd, const std::string &topic, const std::string &chann
 
 void Server::printTopic(int fd, const std::string &channelName, const std::string &newTopic, bool ServerMsg)
 {
-	if (!newTopic.empty())
+	if (!ServerMsg)
 		if (!setTopic(fd, newTopic, channelName))
 			return ;
-	std::string nickname = getClient(fd).getNickname();
+	std::string prefix = getClient(fd).getPrefix();
 	std::string topic = _channelsMap[channelName].getTopic();
-	std::string prefix = ":ircserv 332 ";
+	std::string servPrefix = ":ircserv 332 ";
 	if (topic.empty())
 	{
 		if (ServerMsg)
-			prefix = ":ircserv 331 ";
+			servPrefix = ":ircserv 331 ";
 		topic = "No topic is set";
 	}
 	for (std::map<int, Client>::iterator it = _clientsMap.begin(); it != _clientsMap.end(); ++it)
 	{
-		std::string message = ":";
+		std::string message = prefix;
 		if (ServerMsg)
-			message = prefix;
-		message += nickname + " TOPIC " + channelName + " :" + topic + "\r\n";
+			message = servPrefix;
+		message += "TOPIC " + channelName + " :" + topic + "\r\n";
 		if ((_channelsMap[channelName].isMember(it->first) && !ServerMsg) || (ServerMsg && fd == it->first))
 			send(it->second.getFd(), message.c_str(), message.length(), 0);
 	}
@@ -404,4 +430,23 @@ void Server::removeClient(int fd)
 void Server::deleteChannel(const std::string &channelName)
 {
 	_channelsMap.erase(channelName);
+}
+
+void Server::handleSignal()
+{
+	std::cout << "\n[INFO] SIGINT received. Server shutdown...\n";
+	_signal = true;
+	disconnectAllClients();
+}
+
+void Server::disconnectAllClients()
+{
+	for (std::map<int, Client>::iterator it = _clientsMap.begin(); it != _clientsMap.end(); ++it)
+	{
+		std::string message = "ERROR :Server shutting down\r\n";
+		send(it->first, message.c_str(), message.length(), 0);
+		close(it->first);
+	}
+	_channelsMap.clear();
+	_clientsMap.clear();
 }

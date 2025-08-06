@@ -42,9 +42,10 @@ class Server
 		struct sockaddr_in _addr;
 		std::map<int, Client> _clientsMap;
 		std::map<std::string, Channel> _channelsMap;
+		bool _signal;
 
 	public:
-		Server() {};
+		Server() : _signal(false) {};
 		~Server() {};
 		void parsing(const std::string &port, const std::string &password);
 		void createSocket();
@@ -52,7 +53,8 @@ class Server
 		void handleNewConnection(PollManager& pollManager, std::map<int, std::string> &clientsBuffer);
 		bool handleClientMessage(int clientFd, std::map<int, std::string>& clientsBuffer);
 		bool joinChannel(int fd, const std::string &channelName, const std::string &key);
-		void kickClient(const std::string &kickerName, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment);
+		void quitChannels(int fd);
+		void kickClient(int kickerFd, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment);
 		void inviteClient(int senderFd, int targetFd, const std::string &targetNickname, const std::string &channelName);
 		bool setTopic(int fd, const std::string &topic, const std::string &channelName);
 		void printTopic(int fd, const std::string &channelName, const std::string &topic, bool serverMsg);
@@ -76,5 +78,7 @@ class Server
 		Client &getClient(int fd) {return (this->_clientsMap[fd]);};
 		std::string &getPassword() {return (this->_password);};
 		int getClientFd(const std::string &name);
+		void handleSignal();
+		void disconnectAllClients();
 };
 
