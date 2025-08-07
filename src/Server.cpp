@@ -429,6 +429,8 @@ void Server::removeClient(int fd)
 			channel.removeInvited(fd);
 		if (!channel.getNbUser())
 			deleteChannel(channel.getChannelName());
+		else if (channel.getOperators().size() == 0)
+			channel.addOperatorBySeniority();
 	}
 	_clientsMap.erase(fd);
 }

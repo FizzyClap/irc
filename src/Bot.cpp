@@ -17,7 +17,7 @@ int main()
 		Bot bot(sock);
 		bot.sendRawMessage("PASS " + bot.getPassword());
 		bot.sendRawMessage("NICK bot");
-		bot.sendRawMessage("USER bot bot bot");
+		bot.sendRawMessage("USER bot bot bot :bot");
 		bot.sendRawMessage("LIST");
 		bot.listen();
 	}
@@ -40,21 +40,33 @@ void Bot::listen()
 {
 	char buffer[1024];
 	bool list = false;
+	std::string leftover;
+
 	while (true)
 	{
 		memset(buffer, 0, sizeof(buffer));
 		int bytesRead = recv(_sockFd, buffer, sizeof(buffer) - 1, 0);
 		if (bytesRead <= 0)
-			break ;
+			break;
 		buffer[bytesRead] = '\0';
-		std::string msg = cleanMessage(buffer);
-		if (!msg.empty())
-			std::cout << msg << std::endl;
-		if (joinChannel(list, msg))
-			continue ;
-		handleCommand(msg);
+		std::string data = leftover + std::string(buffer);
+		size_t pos = 0;
+		std::string line;
+		while ((pos = data.find("\r\n")) != std::string::npos)
+		{
+			line = data.substr(0, pos);
+			data.erase(0, pos + 2);
+			std::string msg = cleanMessage(line);
+			if (!msg.empty())
+				std::cout << msg << std::endl;
+			if (joinChannel(list, msg))
+				continue;
+			handleCommand(msg);
+		}
+		leftover = data;
 	}
 }
+
 
 bool Bot::joinChannel(bool &list, const std::string &msg)
 {
@@ -133,7 +145,7 @@ std::string Bot::getTarget(std::vector<std::string> &tokens)
 {
 	std::string target = tokens[2];
 	if (tokens[2] == "bot")
-		target = tokens[0].erase(0, 1);
+		target = tokens[0].substr(1, tokens[0].find_first_of('!'));
 	return (target);
 }
 

@@ -280,6 +280,9 @@ bool errorJoin(Server &srv, int fd, const std::vector<std::string> tokens)
 {
 	if (!isAuthenticated(srv, fd, tokens[0]) || !isRegistered(srv, fd, tokens[0]) || errorParams(srv, fd, tokens, 2, 3))
 		return (true);
+	for (size_t i = 0; tokens[1][i]; i++)
+		if (tokens[1][i] == ',' && !tokens[1][i + 1])
+			return (srv.sendError(fd, "476", "JOIN", "Not enough parameters"));
 	std::vector<std::string> channelsName = split(tokens[1], ',');
 	for (std::vector<std::string>::iterator it = channelsName.begin(); it != channelsName.end(); ++it)
 	{
