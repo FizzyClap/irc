@@ -175,6 +175,34 @@ void Server::broadcast(int senderFd, const std::string &message, bool toOthers)
 	}
 }
 
+void Server::broadcastInChannel(int senderFd, const std::string &message, const std::string &channelName, bool toOthers)
+{
+	bool inChannel = false;
+	for (std::map<std::string, Channel>::iterator chanIt = _channelsMap.begin(); chanIt != _channelsMap.end(); ++chanIt)
+		if (chanIt->second.isMember(senderFd))
+			inChannel = true;
+	if (!inChannel && getClient(senderFd).isRegistered())
+	{
+		send(senderFd, message.c_str(), message.length(), 0);
+		return ;
+	}
+	for (std::map<int, Client>::iterator it = _clientsMap.begin(); it != _clientsMap.end(); ++it)
+	{
+		int receiverFd = it->first;
+		if (!getClient(receiverFd).isRegistered() || (!toOthers && receiverFd != senderFd))
+			continue ;
+		for (std::map<std::string, Channel>::iterator chanIt = _channelsMap.begin(); chanIt != _channelsMap.end(); ++chanIt)
+		{
+			Channel &channel = chanIt->second;
+			if ((channel.isMember(senderFd) && channel.isMember(receiverFd) && channelName == channel.getChannelName()))
+			{
+				send(receiverFd, message.c_str(), message.length(), 0);
+				break ;
+			}
+		}
+	}
+}
+
 void Server::broadcastForJoin(int fd, const std::string &channel, const std::string &key)
 {
 	Client client = getClient(fd);
@@ -197,33 +225,11 @@ void Server::broadcastForJoin(int fd, const std::string &channel, const std::str
 	}
 	std::string alreadyIn = ":ircserv 353 " + nickname + " = " + channel + " :" + clientsInChan  + "\r\n";
 	std::string endBroadcast = ":ircserv 366 " + nickname + " " + channel + " :End of /NAMES list\r\n";
-	broadcast(fd, joinMsg, true);
+	broadcastInChannel(fd, joinMsg, channel, true);
 	getModes(fd, channel);
 	broadcast(fd, aboutTopic, false);
 	broadcast(fd, alreadyIn, false);
 	broadcast(fd, endBroadcast, false);
-}
-
-void Server::quitChannels(int fd)
-{
-	Client &client = getClient(fd);
-	for (std::map<std::string, Channel>::iterator it = _channelsMap.begin(); it != _channelsMap.end(); ++it)
-	{
-		Channel &channel = it->second;
-		std::string channelName = it->first;
-		if (channel.isMember(fd))
-		{
-			channel.removeMembers(fd);
-			if (channel.isOperator(fd))
-				channel.removeOperator(fd);
-			if (channel.getOperators().size() == 0)
-				channel.addOperatorBySeniority();
-			if (channel.getNbUser() == 0)
-				deleteChannel(it->first);
-			std::string message = client.getPrefix() + "PART " + channelName + "\r\n";
-			broadcast(fd, message, true);
-		}
-	}
 }
 
 void Server::kickClient(int kickerFd, int fd, const std::string &channelName, const std::string &nickname, const std::string &comment)

@@ -50,8 +50,7 @@ void cmdUser(Server &srv, int fd, const std::vector<std::string> &tokens)
 	client.setHostname("localhost");
 	client.setServername("ircserv");
 	std::string realname = eraseColon(tokens, 5);
-	if (realname.empty())
-	client.setRealname(tokens[4]);
+	client.setRealname(realname);
 	welcomeMessage(srv, fd);
 }
 
@@ -83,11 +82,6 @@ void cmdJoin(Server &srv, int fd, const std::vector<std::string> &tokens)
 		std::string key = "";
 		if (i < keysPass.size())
 			key = keysPass[i];
-		if (channel == "0")
-		{
-			srv.quitChannels(fd);
-			continue ;
-		}
 		if (!srv.joinChannel(fd, channel, key))
 			return ;
 		srv.broadcastForJoin(fd, channel, key);
@@ -290,13 +284,11 @@ bool errorJoin(Server &srv, int fd, const std::vector<std::string> tokens)
 	for (std::vector<std::string>::iterator it = channelsName.begin(); it != channelsName.end(); ++it)
 	{
 		const std::string &channel = *it;
-		if (channel[0] == '0' && channel.length() == 1)
-			continue ;
 		if (channel.empty() || (channel[0] != '#' && channel[0] != '&') || channel.length() > 50)
-			return (srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask"));
+			return (srv.sendError(fd, "476", "JOIN" + channel, " Bad Channel Mask"));
 		for (size_t i = 1; i < channel.length(); ++i)
 			if (channel[i] == ' ' || channel[i] == ',' || channel[i] < 0x20)
-				return (srv.sendError(fd, "476", "JOIN" + channel, "Bad Channel Mask"));
+				return (srv.sendError(fd, "476", "JOIN" + channel, " Bad Channel Mask"));
 	}
 	return (false);
 }

@@ -58,7 +58,8 @@ class Server
 		void inviteClient(int senderFd, int targetFd, const std::string &targetNickname, const std::string &channelName);
 		bool setTopic(int fd, const std::string &topic, const std::string &channelName);
 		void printTopic(int fd, const std::string &channelName, const std::string &topic, bool serverMsg);
-		void broadcast(int senderFd, const std::string &message, bool toOthers);
+		void broadcast(int senderFd, const std::string &message, const bool toOthers);
+		void broadcastInChannel(int senderFd, const std::string &message, const std::string &channelName, const bool toOthers);
 		void broadcastForJoin(int fd, const std::string &channel, const std::string &key);
 		bool sendError(int fd, const std::string &code, const std::string &arg, const std::string &msg);
 		void sendPrivMsg(int senderFd, int receiverFd, const std::string &target, const std::string &message, bool isChannel);

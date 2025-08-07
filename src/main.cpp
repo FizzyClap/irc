@@ -6,7 +6,7 @@
 /*   By: roespici <roespici@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/12 14:22:33 by peli              #+#    #+#             */
-/*   Updated: 2025/08/06 19:49:19 by roespici         ###   ########.fr       */
+/*   Updated: 2025/08/07 13:09:32 by roespici         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,6 +14,7 @@
 #include "CommandHandler.hpp"
 
 Server *g_signal = NULL;
+
 void handleSignal(int);
 
 int main(int argc, char **argv)
