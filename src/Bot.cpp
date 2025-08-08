@@ -145,7 +145,10 @@ std::string Bot::getTarget(std::vector<std::string> &tokens)
 {
 	std::string target = tokens[2];
 	if (tokens[2] == "bot")
-		target = tokens[0].substr(1, tokens[0].find_first_of('!'));
+	{
+		target = tokens[0].erase(0, 1);
+		target = target.substr(0, target.find_first_of('!'));
+	}
 	return (target);
 }
 
